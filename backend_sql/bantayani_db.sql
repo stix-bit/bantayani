@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `bantayani_db`.`users` (
   `user_id` INT NOT NULL AUTO_INCREMENT,
   `role` ENUM('Farmer', 'Buyer', 'Admin') NOT NULL,
   `first_name` VARCHAR(45) NOT NULL,
+  `middle_name` VARCHAR(45) NOT NULL,
   `last_name` VARCHAR(45) NOT NULL,
   `email` VARCHAR(45) NOT NULL,
   `password` VARCHAR(255) NOT NULL,
@@ -28,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `bantayani_db`.`users` (
   `address` VARCHAR(45) NOT NULL,
   `is_verified` TINYINT NULL DEFAULT 0,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  `img_path` VARCHAR(255) NULL,
+  `img_path` VARCHAR(255) NOT NULL,
   PRIMARY KEY (`user_id`),
   UNIQUE INDEX `email_UNIQUE` (`email` ASC) )
 ENGINE = InnoDB;
@@ -39,7 +40,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `bantayani_db`.`buyer_profiles` (
   `buyer_id` INT NOT NULL,
-  `company_name` VARCHAR(45) NULL,
+  `buyer_type` ENUM('Individual', 'Company') NOT NULL DEFAULT 'Individual',
+  `company_name` VARCHAR(100) NULL,
   INDEX `fk_buyer_profiles_users1_idx` (`buyer_id` ASC) ,
   PRIMARY KEY (`buyer_id`),
   CONSTRAINT `fk_buyer_profiles_users1`
@@ -57,7 +59,7 @@ CREATE TABLE IF NOT EXISTS `bantayani_db`.`farmer_profiles` (
   `farmer_id` INT NOT NULL,
   `farm_name` VARCHAR(45) NOT NULL,
   `farm_location` VARCHAR(255) NOT NULL,
-  `farm_img_path` VARCHAR(255) NULL,
+  `farm_img_path` TEXT NULL,
   `verified_by` INT NULL,
   `verified_at` TIMESTAMP NULL,
   INDEX `fk_farmer_profiles_users_idx` (`farmer_id` ASC) ,
