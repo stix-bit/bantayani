@@ -1,7 +1,7 @@
 <?php
 session_start();
 include('includes/config.php');
-/* Check if user is logged in
+// Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
     header('Location: user/login.php');
     exit;
@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 // Get user information
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'];
-$first_name = $_SESSION['first_name'];*/
+$first_name = $_SESSION['first_name'];
 
 // Fetch dashboard data based on user role
 $dashboard_data = [];
@@ -164,7 +164,7 @@ try {
 // Handle logout
 if (isset($_GET['logout'])) {
     session_destroy();
-    header('Location: login.php');
+    header('Location: ./user/login.php');
     exit;
 }
 ?>
@@ -654,17 +654,17 @@ if (isset($_GET['logout'])) {
         <div class="nav-links">
             <a href="index.php" class="nav-link active">Dashboard</a>
             <?php if ($user_role === 'Farmer'): ?>
-                <a href="inventory.php" class="nav-link">My Inventory</a>
-                <a href="orders.php" class="nav-link">Orders</a>
-                <a href="cooperative.php" class="nav-link">Cooperative</a>
+                <a href="./farmer/inventory.php" class="nav-link">My Inventory</a>
+                <a href="./farmer/orders.php" class="nav-link">Orders</a>
+                <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
             <?php elseif ($user_role === 'Buyer'): ?>
-                <a href="marketplace.php" class="nav-link">Marketplace</a>
-                <a href="orders.php" class="nav-link">My Orders</a>
-                <a href="farmers.php" class="nav-link">Farmers</a>
+                <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
+                <a href="./buyer/orders.php" class="nav-link">My Orders</a>
+                <a href="./buyer/farmers.php" class="nav-link">Farmers</a>
             <?php elseif ($user_role === 'Admin'): ?>
-                <a href="users.php" class="nav-link">Users</a>
-                <a href="reports.php" class="nav-link">Reports</a>
-                <a href="system.php" class="nav-link">System</a>
+                <a href="./admin/users.php" class="nav-link">Users</a>
+                <a href="./admin/reports.php" class="nav-link">Reports</a>
+                <a href="./admin/system.php" class="nav-link">System</a>
             <?php endif; ?>
         </div>
         
