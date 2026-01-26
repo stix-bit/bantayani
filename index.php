@@ -7,10 +7,23 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+
+
 // Get user information
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'];
 $first_name = $_SESSION['first_name'];
+
+$profile_img = null;
+
+$stmt = $conn->prepare("SELECT img_path FROM users WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$stmt->bind_result($profile_img);
+$stmt->fetch();
+$stmt->close();
+
+$profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
 
 // Fetch dashboard data based on user role
 $dashboard_data = [];
@@ -671,16 +684,30 @@ if (isset($_GET['logout'])) {
         <div class="user-menu">
             <a href="./user/profile.php" class="user-menu-link">
     <div class="user-menu">
-        <div class="user-avatar">
-            <?= strtoupper(substr($first_name, 0, 1)) ?>
-        </div>
-    </div>
-</a>
+    <?php
+        $profile_img = trim($profile_img ?? '');
+        $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
+        $public_path   = '/bantayani/' . $profile_img;
+    ?>
 
-<form method="GET" style="display: inline;">
-    <button type="submit" name="logout" value="1" class="logout-btn">Log Out</button>
-</form>
+    <a href="./user/profile.php" title="View Profile">
+        <div class="user-avatar">
+            <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
+                <img src="<?= htmlspecialchars($public_path) ?>"
+                     alt="Profile"
+                     style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+            <?php else: ?>
+                <?= strtoupper(substr($first_name, 0, 1)) ?>
+            <?php endif; ?>
         </div>
+    </a>
+
+    <form method="GET" style="display:inline;">
+        <button type="submit" name="logout" value="1" class="logout-btn">
+            Log Out
+        </button>
+    </form>
+</div>
     </nav>
 
     <!-- Main Content -->
