@@ -14,9 +14,6 @@ $role = $_SESSION['role'];
 $errors = [];
 $success = '';
 
-if (isset($_SESSION['user_id'])) {
-    header('Location: ../index.php');
-    exit;
 // Fetch current user data
 $stmt = $conn->prepare('SELECT * FROM users WHERE user_id = ? LIMIT 1');
 $stmt->bind_param('i', $user_id);
@@ -46,19 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first_name = trim($_POST['first_name'] ?? '');
     $middle_name = trim($_POST['middle_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
-$email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $email = trim($_POST['email'] ?? '');
     $contact_number = trim($_POST['contact_number'] ?? '');
     $address = trim($_POST['address'] ?? '');
 
-    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Please enter a valid email address.';
     if ($first_name === '' || $last_name === '' || $email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Please fill out all required fields with a valid email.';
-}
+    }
 
-    if ($password === '') {
-        $errors[] = 'Password is required.';
     // Handle avatar upload
     if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
         $fileTmp = $_FILES['avatar']['tmp_name'];
@@ -78,11 +70,9 @@ $email = trim($_POST['email'] ?? '');
                 $errors[] = 'Failed to upload avatar.';
             }
         }
-}
+    }
 
-if (empty($errors)) {
-        $stmt = $conn->prepare('SELECT user_id, role, password, first_name FROM users WHERE email = ? LIMIT 1');
-        $stmt->bind_param('s', $email);
+    if (empty($errors)) {
         // Update users table
         $stmt = $conn->prepare('UPDATE users SET first_name=?, middle_name=?, last_name=?, email=?, contact_number=?, address=?' . (isset($avatar_path) ? ', img_path=?' : '') . ' WHERE user_id=?');
         if (isset($avatar_path)) {
@@ -90,18 +80,9 @@ if (empty($errors)) {
         } else {
             $stmt->bind_param('ssssssi', $first_name, $middle_name, $last_name, $email, $contact_number, $address, $user_id);
         }
-$stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
-$stmt->close();
+        $stmt->execute();
+        $stmt->close();
 
-        if ($user && password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['user_id'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['first_name'] = $user['first_name'];
-
-            header('Location: ../index.php');
-            exit;
         // Update role-specific data
         if ($role === 'Farmer') {
             $farm_name = trim($_POST['farm_name'] ?? '');
@@ -116,52 +97,24 @@ $stmt->close();
             $stmt->bind_param('si', $preferred_payment, $user_id);
             $stmt->execute();
             $stmt->close();
-}
+        }
 
-        $errors[] = 'Invalid email or password.';
         $success = 'Profile updated successfully!';
         // Refresh session first name if changed
         $_SESSION['first_name'] = $first_name;
-}
+    }
 }
 
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BantayAni | Login</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap');
-
-        :root {
-            --green-dark: #0c5c4c;
-            --green: #1f8a70;
-            --beige: #f6f1e9;
-            --text: #1f2933;
-            --error: #b91c1c;
-        }
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>BantayAni | Profile</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap');
 
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: 'Quicksand', 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, rgba(12, 92, 76, 0.08), rgba(242, 135, 5, 0.15));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-        }
 :root {
     --green-dark: #0c5c4c;
     --green: #1f8a70;
@@ -170,13 +123,6 @@ $stmt->close();
     --error: #b91c1c;
 }
 
-        .card {
-            width: min(420px, 100%);
-            background: white;
-            border-radius: 28px;
-            padding: 48px 40px;
-            box-shadow: 0 25px 60px rgba(12, 92, 76, 0.2);
-        }
 * { box-sizing: border-box; }
 body {
     margin:0;
@@ -263,12 +209,6 @@ button[type="submit"]:hover {
 <h1>My Profile</h1>
 <p class="subtitle">Edit your personal information below.</p>
 
-        h1 {
-            margin: 0 0 8px;
-            font-size: 1.8rem;
-            color: var(--green-dark);
-            text-align: center;
-        }
 <?php if (!empty($errors)) : ?>
     <div class="alert">
         <ul>
@@ -279,107 +219,33 @@ button[type="submit"]:hover {
     </div>
 <?php endif; ?>
 
-        p.subtitle {
-            text-align: center;
-            margin: 0 0 32px;
-            color: #4c5662;
-        }
 <?php if ($success): ?>
     <div class="success"><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?></div>
 <?php endif; ?>
 
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 6px;
-            color: var(--text);
-        }
 <form method="POST" enctype="multipart/form-data" autocomplete="off">
     <img class="avatar-preview" src="<?= htmlspecialchars($user['img_path'] ?? 'https://via.placeholder.com/120', ENT_QUOTES, 'UTF-8'); ?>" alt="Avatar">
     <label for="avatar">Change Avatar</label>
     <input type="file" name="avatar" id="avatar" accept="image/*">
 
-        input[type="email"],
-        input[type="password"] {
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 14px;
-            border: 1px solid #d8dee6;
-            font-size: 1rem;
-            margin-bottom: 20px;
-        }
     <label for="first_name">First Name</label>
     <input type="text" name="first_name" value="<?= htmlspecialchars($_POST['first_name'] ?? $user['first_name'], ENT_QUOTES, 'UTF-8'); ?>" required>
 
-        button[type="submit"] {
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 999px;
-            border: none;
-            background: var(--green);
-            color: white;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 120ms ease, background 120ms ease;
-        }
     <label for="middle_name">Middle Name</label>
     <input type="text" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? $user['middle_name'], ENT_QUOTES, 'UTF-8'); ?>">
 
-        button[type="submit"]:hover {
-            background: var(--green-dark);
-            transform: translateY(-1px);
-        }
     <label for="last_name">Last Name</label>
     <input type="text" name="last_name" value="<?= htmlspecialchars($_POST['last_name'] ?? $user['last_name'], ENT_QUOTES, 'UTF-8'); ?>" required>
 
-        .alert {
-            padding: 14px 16px;
-            border-radius: 14px;
-            border: 1px solid rgba(185, 28, 28, 0.4);
-            background: rgba(185, 28, 28, 0.1);
-            color: var(--error);
-            margin-bottom: 24px;
-        }
     <label for="email">Email</label>
     <input type="email" name="email" value="<?= htmlspecialchars($_POST['email'] ?? $user['email'], ENT_QUOTES, 'UTF-8'); ?>" required>
 
-        .switch-link {
-            text-align: center;
-            margin-top: 20px;
-            color: #4c5662;
-        }
     <label for="contact_number">Contact Number</label>
     <input type="text" name="contact_number" value="<?= htmlspecialchars($_POST['contact_number'] ?? $user['contact_number'], ENT_QUOTES, 'UTF-8'); ?>">
 
-        .switch-link a {
-            color: var(--green);
-            font-weight: 600;
-            text-decoration: none;
-        }
     <label for="address">Address</label>
     <input type="text" name="address" value="<?= htmlspecialchars($_POST['address'] ?? $user['address'], ENT_QUOTES, 'UTF-8'); ?>" required>
 
-        @media (max-width: 480px) {
-            .card {
-                padding: 36px 28px;
-            }
-        }
-    </style>
-</head>
-<body>
-<div class="card">
-    <h1>Welcome back</h1>
-    <p class="subtitle">Sign in to continue your BantayAni journey.</p>
-
-    <?php if (!empty($errors)) : ?>
-        <div class="alert">
-            <ul>
-                <?php foreach ($errors as $error) : ?>
-                    <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </div>
     <?php if($role === 'Farmer'): ?>
         <label for="farm_name">Farm Name</label>
         <input type="text" name="farm_name" value="<?= htmlspecialchars($_POST['farm_name'] ?? $role_data['farm_name'], ENT_QUOTES, 'UTF-8'); ?>" required>
@@ -391,19 +257,8 @@ button[type="submit"]:hover {
             <option value="Cash" <?= ($role_data['preferred_payment_method'] ?? '') === 'Cash' ? 'selected' : ''; ?>>Cash</option>
             <option value="Online" <?= ($role_data['preferred_payment_method'] ?? '') === 'Online' ? 'selected' : ''; ?>>Online</option>
         </select>
-<?php endif; ?>
+    <?php endif; ?>
 
-    <form method="POST" autocomplete="off">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required />
-
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required />
-
-        <button type="submit">Log In</button>
-    </form>
-
-    <p class="switch-link">Don’t have an account? <a href="register-choice.php">Create one</a>.</p>
     <button type="submit">Update Profile</button>
 </form>
 </div>
