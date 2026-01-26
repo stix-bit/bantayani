@@ -669,10 +669,17 @@ if (isset($_GET['logout'])) {
         </div>
         
         <div class="user-menu">
-            <div class="user-avatar"><?= strtoupper(substr($first_name, 0, 1)) ?></div>
-            <form method="GET" style="display: inline;">
-                <button type="submit" name="logout" value="1" class="logout-btn">Log Out</button>
-            </form>
+            <a href="./user/profile.php" class="user-menu-link">
+    <div class="user-menu">
+        <div class="user-avatar">
+            <?= strtoupper(substr($first_name, 0, 1)) ?>
+        </div>
+    </div>
+</a>
+
+<form method="GET" style="display: inline;">
+    <button type="submit" name="logout" value="1" class="logout-btn">Log Out</button>
+</form>
         </div>
     </nav>
 
