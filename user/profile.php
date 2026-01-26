@@ -1,146 +1,191 @@
 <?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
 session_start();
 require_once __DIR__ . '/../includes/config.php';
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+$errors = [];
+
+if (isset($_SESSION['user_id'])) {
+    header('Location: ../index.php');
     exit;
 }
 
-$user_id = $_SESSION['user_id'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
 
-/* Fetch user */
-$stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Please enter a valid email address.';
+    }
 
-if (!$user) {
-    die("User not found.");
+    if ($password === '') {
+        $errors[] = 'Password is required.';
+    }
+
+    if (empty($errors)) {
+        $stmt = $conn->prepare('SELECT user_id, role, password, first_name FROM users WHERE email = ? LIMIT 1');
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+        $stmt->close();
+
+        if ($user && password_verify($password, $user['password'])) {
+            $_SESSION['user_id'] = $user['user_id'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['first_name'] = $user['first_name'];
+
+            header('Location: ../index.php');
+            exit;
+        }
+
+        $errors[] = 'Invalid email or password.';
+    }
 }
-
-$role = $user['role'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>My Profile</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BantayAni | Login</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap');
 
-<style>
-:root {
-    --green-dark: #0c5c4c;
-    --green: #1f8a70;
-    --beige: #f6f1e9;
-    --text: #1f2933;
-}
+        :root {
+            --green-dark: #0c5c4c;
+            --green: #1f8a70;
+            --beige: #f6f1e9;
+            --text: #1f2933;
+            --error: #b91c1c;
+        }
 
-* { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
-body {
-    margin: 0;
-    min-height: 100vh;
-    font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, rgba(12,92,76,.08), rgba(242,135,5,.15));
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: 'Quicksand', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, rgba(12, 92, 76, 0.08), rgba(242, 135, 5, 0.15));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
 
-.card {
-    width: min(420px, 100%);
-    background: white;
-    border-radius: 28px;
-    padding: 40px;
-    box-shadow: 0 25px 60px rgba(12,92,76,.2);
-}
+        .card {
+            width: min(420px, 100%);
+            background: white;
+            border-radius: 28px;
+            padding: 48px 40px;
+            box-shadow: 0 25px 60px rgba(12, 92, 76, 0.2);
+        }
 
-h1 {
-    text-align: center;
-    color: var(--green-dark);
-    margin-bottom: 16px;
-}
+        h1 {
+            margin: 0 0 8px;
+            font-size: 1.8rem;
+            color: var(--green-dark);
+            text-align: center;
+        }
 
-.avatar {
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    border: 4px solid var(--green);
-    object-fit: cover;
-    display: block;
-    margin: 0 auto 20px;
-}
+        p.subtitle {
+            text-align: center;
+            margin: 0 0 32px;
+            color: #4c5662;
+        }
 
-.label {
-    font-weight: 600;
-    color: var(--text);
-    margin-top: 14px;
-}
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
 
-.value {
-    background: #f1f5f9;
-    padding: 12px 14px;
-    border-radius: 14px;
-}
+        input[type="email"],
+        input[type="password"] {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid #d8dee6;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
 
-.upload-btn {
-    margin: 16px auto;
-    display: block;
-    background: var(--green);
-    color: white;
-    padding: 10px 18px;
-    border-radius: 999px;
-    cursor: pointer;
-    border: none;
-    font-weight: 600;
-}
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 999px;
+            border: none;
+            background: var(--green);
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 120ms ease, background 120ms ease;
+        }
 
-.upload-btn:hover {
-    background: var(--green-dark);
-}
+        button[type="submit"]:hover {
+            background: var(--green-dark);
+            transform: translateY(-1px);
+        }
 
-input[type="file"] {
-    display: none;
-}
-</style>
+        .alert {
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(185, 28, 28, 0.4);
+            background: rgba(185, 28, 28, 0.1);
+            color: var(--error);
+            margin-bottom: 24px;
+        }
+
+        .switch-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #4c5662;
+        }
+
+        .switch-link a {
+            color: var(--green);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        @media (max-width: 480px) {
+            .card {
+                padding: 36px 28px;
+            }
+        }
+    </style>
 </head>
-
 <body>
 <div class="card">
+    <h1>Welcome back</h1>
+    <p class="subtitle">Sign in to continue your BantayAni journey.</p>
 
-    <h1><?= htmlspecialchars($role) ?> Profile</h1>
+    <?php if (!empty($errors)) : ?>
+        <div class="alert">
+            <ul>
+                <?php foreach ($errors as $error) : ?>
+                    <li><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
 
-    <img
-        src="<?= $user['img_path'] ?: '../images/default-avatar.png' ?>"
-        class="avatar"
-        alt="Profile Picture"
-    >
+    <form method="POST" autocomplete="off">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required />
 
-    <!-- Upload photo -->
-    <form method="POST" enctype="multipart/form-data">
-        <label class="upload-btn">
-            Change Picture
-            <input type="file" name="profile_image" onchange="this.form.submit()">
-        </label>
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required />
+
+        <button type="submit">Log In</button>
     </form>
 
-    <div class="label">Full Name</div>
-    <div class="value">
-        <?= htmlspecialchars($user['first_name'].' '.$user['middle_name'].' '.$user['last_name']) ?>
-    </div>
-
-    <div class="label">Email</div>
-    <div class="value"><?= htmlspecialchars($user['email']) ?></div>
-
-    <div class="label">Contact</div>
-    <div class="value"><?= htmlspecialchars($user['contact_number'] ?? '-') ?></div>
-
-    <div class="label">Address</div>
-    <div class="value"><?= htmlspecialchars($user['address']) ?></div>
-
+    <p class="switch-link">Don’t have an account? <a href="register-choice.php">Create one</a>.</p>
 </div>
 </body>
 </html>
