@@ -166,6 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $_SESSION['first_name'] = $first_name;
         $success = 'Profile updated successfully!';
+        header("Location: profile.php");
     }
 }
 ?>

@@ -162,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
 <div class="card">
-    <h1>Welcome back</h1>
+    <h1>Welcome!</h1>
     <p class="subtitle">Sign in to continue your BantayAni journey.</p>
 
     <?php if (!empty($errors)) : ?>

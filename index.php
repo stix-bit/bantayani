@@ -716,7 +716,7 @@ if (isset($_GET['logout'])) {
     <main class="container">
         <!-- Welcome Banner -->
         <div class="welcome-banner">
-            <h1>Welcome back, <?= htmlspecialchars($first_name) ?>!</h1>
+            <h1>Welcome back,<?= htmlspecialchars($first_name) ?>!</h1>
             <p>Manage your farm-to-market activities efficiently with BANTAY-ANI.</p>
             <div class="role-badge"><?= $user_role ?></div>
         </div>
@@ -877,16 +877,16 @@ if (isset($_GET['logout'])) {
                             <div class="action-desc">Update your preferences</div>
                         </a>
                     <?php elseif ($user_role === 'Admin'): ?>
-                        <a href="users.php" class="action-card">
+                        <a href="admin/users.php" class="action-card">
                             <div class="action-icon">👥</div>
                             <div class="action-title">Manage Users</div>
                             <div class="action-desc">View and verify users</div>
                         </a>
-                        <a href="reports.php" class="action-card">
+                        <!-- <a href="reports.php" class="action-card">
                             <div class="action-icon">📊</div>
                             <div class="action-title">System Reports</div>
                             <div class="action-desc">Generate system analytics</div>
-                        </a>
+                        </a> -->
                         <a href="verification.php" class="action-card">
                             <div class="action-icon">✅</div>
                             <div class="action-title">Verification Queue</div>

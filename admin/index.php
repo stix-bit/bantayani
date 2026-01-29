@@ -121,14 +121,14 @@ if (isset($_GET['logout'])) {
             </ul>
         </div>
         
-        <div class="nav-section">
+        <!-- <div class="nav-section">
             <div class="nav-title">System</div>
             <ul class="nav-links">
                 <li><a href="settings.php" class="nav-link"><span class="nav-icon">⚙️</span><span>Settings</span></a></li>
                 <li><a href="logs.php" class="nav-link"><span class="nav-icon">📝</span><span>System Logs</span></a></li>
                 <li><a href="backup.php" class="nav-link"><span class="nav-icon">💾</span><span>Backup</span></a></li>
             </ul>
-        </div>
+        </div> -->
     </aside>
 
     <!-- Main Content -->
@@ -327,11 +327,11 @@ if (isset($_GET['logout'])) {
                     <div class="action-desc">Notify all users about important updates</div>
                 </a>
                 
-                <a href="backup.php" class="action-card">
+                <!-- <a href="backup.php" class="action-card">
                     <div class="action-icon">💾</div>
                     <div class="action-title">System Backup</div>
                     <div class="action-desc">Create a backup of all system data</div>
-                </a>
+                </a> -->
             </div>
 
             <!-- Footer -->

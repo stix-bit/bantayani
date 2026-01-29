@@ -153,6 +153,25 @@ function closeEditModal() {
             <li><a href="reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
         </ul>
     </div>
+
+    <div class="nav-section">
+            <div class="nav-title">Management</div>
+            <ul class="nav-links">
+                <li><a href="crops.php" class="nav-link"><span class="nav-icon">🌱</span><span>Crop Categories</span></a></li>
+                <li><a href="pricing.php" class="nav-link"><span class="nav-icon">💰</span><span>Price Benchmarks</span></a></li>
+                <li><a href="delivery.php" class="nav-link"><span class="nav-icon">🚚</span><span>Delivery Partners</span></a></li>
+                <li><a href="announcements.php" class="nav-link"><span class="nav-icon">📢</span><span>Announcements</span></a></li>
+            </ul>
+        </div>
+        
+        <!-- <div class="nav-section">
+            <div class="nav-title">System</div>
+            <ul class="nav-links">
+                <li><a href="settings.php" class="nav-link"><span class="nav-icon">⚙️</span><span>Settings</span></a></li>
+                <li><a href="logs.php" class="nav-link"><span class="nav-icon">📝</span><span>System Logs</span></a></li>
+                <li><a href="backup.php" class="nav-link"><span class="nav-icon">💾</span><span>Backup</span></a></li>
+            </ul>
+        </div> -->
 </aside>
 
 <main class="main-content">
