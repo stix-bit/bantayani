@@ -665,16 +665,18 @@ if (isset($_GET['logout'])) {
         </div>
         
         <div class="nav-links">
-            <a href="index.php" class="nav-link active">Dashboard</a>
             <?php if ($user_role === 'Farmer'): ?>
+                <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="./farmer/inventory.php" class="nav-link">My Inventory</a>
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
             <?php elseif ($user_role === 'Buyer'): ?>
+                <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
                 <a href="./buyer/farmers.php" class="nav-link">Farmers</a>
             <?php elseif ($user_role === 'Admin'): ?>
+                <a href="./admin/index.php" class="nav-link active">Dashboard</a>
                 <a href="./admin/users.php" class="nav-link">Users</a>
                 <a href="./admin/reports.php" class="nav-link">Reports</a>
                 <a href="./admin/system.php" class="nav-link">System</a>
@@ -833,7 +835,7 @@ if (isset($_GET['logout'])) {
                 <!-- Action Cards -->
                 <div class="action-grid">
                     <?php if ($user_role === 'Farmer'): ?>
-                        <a href="add-inventory.php" class="action-card">
+                        <a href="./farmer/inventory.php" class="action-card">
                             <div class="action-icon">➕</div>
                             <div class="action-title">Add New Crop</div>
                             <div class="action-desc">List your crops for sale</div>

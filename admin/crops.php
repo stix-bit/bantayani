@@ -64,7 +64,7 @@ $crops = $result->fetch_all(MYSQLI_ASSOC);
 <body>
 <aside class="sidebar">
     <div class="logo-container">
-        <a href="index.php" class="logo">
+        <a href="http://localhost/bantayani/index.php" class="logo">
             <div class="logo-icon">BA</div>
             <div class="logo-text">BANTAY<span>ANI</span></div>
         </a>

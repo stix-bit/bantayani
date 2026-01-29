@@ -13,6 +13,8 @@ $stats = [];
 $recent_users = [];
 $pending_verifications = []; */
 
+$user_id = $_SESSION['user_id'] ?? null;
+
 try {
     // Total statistics
     $stmt = $conn->query("
@@ -59,6 +61,17 @@ try {
     error_log("Admin dashboard error: " . $e->getMessage());
 }
 
+$profile_img = null;
+
+$stmt = $conn->prepare("SELECT img_path FROM users WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$stmt->bind_result($profile_img);
+$stmt->fetch();
+$stmt->close();
+
+$profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
+
 // Handle logout
 if (isset($_GET['logout'])) {
     session_destroy();
@@ -80,7 +93,7 @@ if (isset($_GET['logout'])) {
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="logo-container">
-            <a href="index.php" class="logo">
+            <a href="http://localhost/bantayani/index.php" class="logo">
                 <div class="logo-icon">BA</div>
                 <div class="logo-text">BANTAY<span>ANI</span></div>
             </a>
@@ -127,8 +140,23 @@ if (isset($_GET['logout'])) {
                 <p>Welcome back, <?= htmlspecialchars($_SESSION['first_name'] ?? 'Admin') ?>! Here's what's happening.</p>
             </div>
             
+            <?php
+                $profile_img = trim($profile_img ?? '');
+                $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
+                $public_path   = '/bantayani/' . $profile_img;
+            ?>
+
             <div class="user-info">
-                <div class="user-avatar"><?= strtoupper(substr($_SESSION['first_name'] ?? 'A', 0, 1)) ?></div>
+                <div class="user-avatar">
+                    <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
+                        <img src="<?= htmlspecialchars($public_path) ?>"
+                            alt="Profile"
+                            style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                    <?php else: ?>
+                        <?= strtoupper(substr($first_name, 0, 1)) ?>
+                    <?php endif; ?>
+                </div>
+
                 <form method="GET">
                     <button type="submit" name="logout" value="1" class="logout-btn">Log Out</button>
                 </form>
