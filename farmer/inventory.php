@@ -13,15 +13,28 @@ $farmer_id = $_SESSION['user_id'];
 // Handle Add/Edit/Delete actions
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'add') {
-        $crop_id = $_POST['crop_id'];
-        $quantity = $_POST['quantity'];
-        $harvest_date = $_POST['harvest_date'];
-        $price = $_POST['price'];
+    $crop_id = $_POST['crop_id'];
+    $quantity = $_POST['quantity'];
+    $harvest_date = $_POST['harvest_date'];
+    $price = $_POST['price'];
 
+    // Check if farmer already has this crop
+    $check = $conn->prepare("SELECT inventory_id FROM crops_inventory WHERE farmer_id=? AND crop_id=?");
+    $check->bind_param("ii", $farmer_id, $crop_id);
+    $check->execute();
+    $check->store_result();
+
+    if ($check->num_rows > 0) {
+        $errors[] = "You already have this crop in your inventory. Please edit it instead.";
+    } else {
         $stmt = $conn->prepare("INSERT INTO crops_inventory (farmer_id, crop_id, quantity, harvest_date, price) VALUES (?, ?, ?, ?, ?)");
         $stmt->bind_param("iidsd", $farmer_id, $crop_id, $quantity, $harvest_date, $price);
         $stmt->execute();
+        $stmt->close();
+        $success = "Crop added successfully!";
     }
+    $check->close();
+}
 
     if ($_POST['action'] === 'edit') {
         $inventory_id = $_POST['inventory_id'];

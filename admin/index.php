@@ -115,7 +115,7 @@ if (isset($_GET['logout'])) {
             <div class="nav-title">Management</div>
             <ul class="nav-links">
                 <li><a href="crops.php" class="nav-link"><span class="nav-icon">🌱</span><span>Crop Categories</span></a></li>
-                <li><a href="pricing.php" class="nav-link"><span class="nav-icon">💰</span><span>Price Benchmarks</span></a></li>
+                <li><a href="benchmarking.php" class="nav-link"><span class="nav-icon">💰</span><span>Price Benchmarks</span></a></li>
                 <li><a href="delivery.php" class="nav-link"><span class="nav-icon">🚚</span><span>Delivery Partners</span></a></li>
                 <li><a href="announcements.php" class="nav-link"><span class="nav-icon">📢</span><span>Announcements</span></a></li>
             </ul>

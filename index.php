@@ -7,8 +7,6 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-
-
 // Get user information
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'];
@@ -670,6 +668,7 @@ if (isset($_GET['logout'])) {
                 <a href="./farmer/inventory.php" class="nav-link">My Inventory</a>
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
+                <a href="./farmer/benchmarking.php" class="nav-link">Pricing</a>
             <?php elseif ($user_role === 'Buyer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
@@ -679,7 +678,7 @@ if (isset($_GET['logout'])) {
                 <a href="./admin/index.php" class="nav-link active">Dashboard</a>
                 <a href="./admin/users.php" class="nav-link">Users</a>
                 <a href="./admin/reports.php" class="nav-link">Reports</a>
-                <a href="./admin/system.php" class="nav-link">System</a>
+                <a href="./admin/benchmarking.php" class="nav-link">Pricing</a>
             <?php endif; ?>
         </div>
         
@@ -716,7 +715,7 @@ if (isset($_GET['logout'])) {
     <main class="container">
         <!-- Welcome Banner -->
         <div class="welcome-banner">
-            <h1>Welcome back,<?= htmlspecialchars($first_name) ?>!</h1>
+            <h1>Welcome back, <?= htmlspecialchars($first_name) ?>!</h1>
             <p>Manage your farm-to-market activities efficiently with BANTAY-ANI.</p>
             <div class="role-badge"><?= $user_role ?></div>
         </div>
