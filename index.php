@@ -1,11 +1,8 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/includes/auth_helper.php';
+require_login();
 include('includes/config.php');
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: user/login.php');
-    exit;
-}
 
 // Get user information
 $user_id = $_SESSION['user_id'];
@@ -172,10 +169,9 @@ try {
     error_log("Dashboard error: " . $e->getMessage());
 }
 
-// Handle logout
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: ./user/login.php');
+// Check if user is logged in
+if (!isset($_SESSION['user_id'])) {
+    header('Location: user/login.php');
     exit;
 }
 ?>
@@ -747,6 +743,7 @@ if (isset($_GET['logout'])) {
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="./farmer/benchmarking.php" class="nav-link">Pricing</a>
+                <a href="./farmer/profile.php" class="nav-link">Profile</a>
             <?php elseif ($user_role === 'Buyer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
@@ -779,11 +776,9 @@ if (isset($_GET['logout'])) {
                 </div>
             </a>
 
-            <form method="GET" style="display:inline;">
-                <button type="submit" name="logout" value="1" class="logout-btn">
-                    Log Out
-                </button>
-            </form>
+            <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none; display:inline-block;">
+                Log Out
+            </a>
         </div>
     </nav>
 

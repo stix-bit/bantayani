@@ -1,5 +1,7 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login();
 include "../includes/config.php";
 
 $id = $_SESSION['user_id'];

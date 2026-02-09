@@ -1,11 +1,8 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login('Farmer');
 require_once '../includes/config.php';
-
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
-    header("Location: ../user/login.php");
-    exit;
-}
 
 $farmer_id = $_SESSION['user_id'];
 $days = $_GET['days'] ?? 30;
@@ -168,6 +165,7 @@ function getStatus($farmer, $avg) {
             <a href="./orders.php" class="nav-link">Orders</a>
             <a href="./cooperative.php" class="nav-link">Cooperative</a>
             <a href="./benchmarking.php" class="nav-link">Pricing</a>
+            <a href="./profile.php" class="nav-link">Profile</a>
         </div>
 </nav>
 <br>

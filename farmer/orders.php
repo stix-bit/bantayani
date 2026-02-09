@@ -1,11 +1,8 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login('Farmer');
 require_once __DIR__ . '/../includes/config.php';
-
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
-    header('Location: ../user/login.php');
-    exit;
-}
 
 $farmer_id = $_SESSION['user_id'];
 $first_name = $_SESSION['first_name'];
@@ -95,11 +92,6 @@ $stmt->bind_param('i', $farmer_id);
 $stmt->execute();
 $orders = $stmt->get_result();
 
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: ../user/login.php');
-    exit;
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -122,6 +114,7 @@ if (isset($_GET['logout'])) {
         <a href="inventory.php" class="nav-link">Inventory</a>
         <a href="orders.php" class="nav-link active">Orders</a>
         <a href="benchmarking.php" class="nav-link">Benchmarking</a>
+        <a href="profile.php" class="nav-link">Profile</a>
     </div>
     
     <div class="user-menu">
@@ -141,11 +134,9 @@ if (isset($_GET['logout'])) {
                 <?php endif; ?>
             </div>
         </a>
-        <form method="GET" style="display:inline;">
-            <button type="submit" name="logout" value="1" class="logout-btn">
-                Log Out
-            </button>
-        </form>
+        <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none; display:inline-block;">
+            Log Out
+        </a>
     </div>
 </nav>
 

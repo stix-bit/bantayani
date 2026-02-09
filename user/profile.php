@@ -1,13 +1,8 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login();
 require_once __DIR__ . '/../includes/config.php';
-
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit;
-}
 
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];

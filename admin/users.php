@@ -1,12 +1,8 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login('Admin');
 require_once '../includes/config.php';
-
-// Admin access check
-// if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
-//     header('Location: ../user/login.php');
-//     exit;
-// }
 
 // Handle actions
 if (isset($_POST['action'], $_POST['user_id'])) {

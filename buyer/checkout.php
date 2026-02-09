@@ -1,5 +1,7 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login('Buyer');
 include "../includes/config.php";
 
 $buyer_id = $_SESSION['user_id'];
@@ -75,11 +77,6 @@ $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
 
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: ../user/login.php');
-    exit;
-}
 ?>
 <!DOCTYPE html>
 <html>
@@ -121,11 +118,9 @@ if (isset($_GET['logout'])) {
                     <?php endif; ?>
                 </div>
             </a>
-            <form method="GET" style="display:inline;">
-                <button type="submit" name="logout" value="1" class="logout-btn">
-                    Log Out
-                </button>
-            </form>
+            <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none; display:inline-block;">
+                Log Out
+            </a>
         </div>
     </nav>
 

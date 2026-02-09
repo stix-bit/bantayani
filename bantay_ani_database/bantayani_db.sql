@@ -301,6 +301,35 @@ CREATE TABLE IF NOT EXISTS `payment` (
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- -----------------------------------------------------
+-- Table `farmer_verification`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `farmer_verification` (
+  `verification_id` INT NOT NULL AUTO_INCREMENT,
+  `farmer_id` INT NOT NULL,
+  `certificate_type` ENUM('Business Permit', 'Agricultural License', 'Tax Identification', 'Others') NOT NULL,
+  `certificate_name` VARCHAR(255) NOT NULL,
+  `certificate_path` VARCHAR(255) NOT NULL,
+  `status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending',
+  `submitted_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+  `reviewed_at` TIMESTAMP NULL,
+  `reviewed_by` INT NULL,
+  `admin_notes` TEXT NULL,
+  PRIMARY KEY (`verification_id`),
+  INDEX `fk_farmer_verification_users1_idx` (`farmer_id` ASC) ,
+  INDEX `fk_farmer_verification_admin_idx` (`reviewed_by` ASC) ,
+  CONSTRAINT `fk_farmer_verification_users1`
+    FOREIGN KEY (`farmer_id`)
+    REFERENCES `users` (`user_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_farmer_verification_admin`
+    FOREIGN KEY (`reviewed_by`)
+    REFERENCES `users` (`user_id`)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE = InnoDB;
+
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;

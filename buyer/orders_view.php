@@ -1,11 +1,8 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login('Buyer');
 require_once __DIR__ . '/../includes/config.php';
-
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Buyer') {
-    header('Location: ../user/login.php');
-    exit;
-}
 
 $order_id = $_GET['id'] ?? 0;
 $buyer_id = $_SESSION['user_id'];
@@ -52,11 +49,6 @@ $stmt->execute();
 $items = $stmt->get_result();
 $stmt->close();
 
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: ../user/login.php');
-    exit;
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -104,11 +96,9 @@ if (isset($_GET['logout'])) {
                 <?php endif; ?>
             </div>
         </a>
-        <form method="GET" style="display:inline;">
-                <button type="submit" name="logout" value="1" class="logout-btn">
-                    Log Out
-                </button>
-        </form>
+        <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none; display:inline-block;">
+            Log Out
+        </a>
     </div>
 </nav>
 

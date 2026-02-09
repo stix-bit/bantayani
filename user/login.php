@@ -5,9 +5,24 @@ require_once __DIR__ . '/../includes/config.php';
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 $errors = [];
+$info_message = trim($_GET['message'] ?? '');
+$next = trim($_GET['next'] ?? '');
+$safe_next = '';
+if ($next !== '' && str_starts_with($next, '/bantayani/')) {
+    $safe_next = $next;
+}
 
 if (isset($_SESSION['user_id'])) {
-    header('Location: ../index.php');
+    $role = $_SESSION['role'] ?? null;
+    if ($safe_next !== '') {
+        header('Location: ' . $safe_next);
+        exit;
+    }
+    if ($role === 'Admin') {
+        header('Location: /bantayani/admin/index.php');
+        exit;
+    }
+    header('Location: /bantayani/index.php');
     exit;
 }
 
@@ -36,7 +51,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['role'] = $user['role'];
             $_SESSION['first_name'] = $user['first_name'];
 
-            header('Location: ../index.php');
+            if ($safe_next !== '') {
+                header('Location: ' . $safe_next);
+                exit;
+            }
+
+            if ($user['role'] === 'Admin') {
+                header('Location: /bantayani/admin/index.php');
+                exit;
+            }
+
+            header('Location: /bantayani/index.php');
             exit;
         }
 
@@ -164,6 +189,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="card">
     <h1>Welcome!</h1>
     <p class="subtitle">Sign in to continue your BantayAni journey.</p>
+
+    <?php if ($info_message !== '') : ?>
+        <div class="alert">
+            <ul>
+                <li><?= htmlspecialchars($info_message, ENT_QUOTES, 'UTF-8'); ?></li>
+            </ul>
+        </div>
+    <?php endif; ?>
 
     <?php if (!empty($errors)) : ?>
         <div class="alert">

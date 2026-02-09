@@ -1,17 +1,13 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login('Admin');
 require_once '../includes/config.php';
-
-// Admin access check
-/* if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
-    header('Location: ../user/login.php');
-    exit;
-}
 
 // Get admin statistics
 $stats = [];
 $recent_users = [];
-$pending_verifications = []; */
+$pending_verifications = [];
 
 $user_id = $_SESSION['user_id'] ?? null;
 
@@ -72,12 +68,7 @@ $stmt->close();
 
 $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
 
-// Handle logout
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header('Location: ../user/login.php');
-    exit;
-}
+ 
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -93,7 +84,7 @@ if (isset($_GET['logout'])) {
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="logo-container">
-            <a href="http://localhost/bantayani/index.php" class="logo">
+            <a href="http://localhost/bantayani/admin/index.php" class="logo">
                 <div class="logo-icon">BA</div>
                 <div class="logo-text">BANTAY<span>ANI</span></div>
             </a>
@@ -105,7 +96,7 @@ if (isset($_GET['logout'])) {
             <ul class="nav-links">
                 <li><a href="index.php" class="nav-link active"><span class="nav-icon">📊</span><span>Dashboard</span></a></li>
                 <li><a href="users.php" class="nav-link"><span class="nav-icon">👥</span><span>Users</span></a></li>
-                <li><a href="verification.php" class="nav-link"><span class="nav-icon">✅</span><span>Verification</span></a></li>
+                <li><a href="verify_farmers.php" class="nav-link"><span class="nav-icon">✅</span><span>Verification</span></a></li>
                 <li><a href="orders.php" class="nav-link"><span class="nav-icon">📦</span><span>Orders</span></a></li>
                 <li><a href="reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
             </ul>
@@ -157,9 +148,7 @@ if (isset($_GET['logout'])) {
                     <?php endif; ?>
                 </div>
 
-                <form method="GET">
-                    <button type="submit" name="logout" value="1" class="logout-btn">Log Out</button>
-                </form>
+                <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none; display:inline-block;">Log Out</a>
             </div>
         </div>
 

@@ -1,6 +1,13 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login('Buyer');
 include "../includes/config.php";
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: bantayani/user/login.php");
+    exit();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $buyer_id = $_SESSION['user_id'] ?? 0;

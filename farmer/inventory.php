@@ -1,12 +1,8 @@
 <?php
-session_start();
+// No output before authentication check
+require_once __DIR__ . '/../includes/auth_helper.php';
+require_login('Farmer');
 require_once '../includes/config.php';
-
-// Farmer access check
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
-    header('Location: ../user/login.php');
-    exit;
-}
 
 $farmer_id = $_SESSION['user_id'];
 
