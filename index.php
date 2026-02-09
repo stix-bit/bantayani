@@ -234,6 +234,7 @@ if (isset($_GET['logout'])) {
             position: sticky;
             top: 0;
             z-index: 1000;
+            gap: 20px;
         }
 
         .logo-container {
@@ -263,6 +264,58 @@ if (isset($_GET['logout'])) {
 
         .logo-text span {
             color: var(--orange);
+        }
+
+        /* Search Bar Styles */
+        .nav-search-container {
+            flex: 1;
+            max-width: 500px;
+        }
+
+        .nav-search-form {
+            position: relative;
+            width: 100%;
+        }
+
+        .nav-search-input {
+            width: 100%;
+            padding: 10px 45px 10px 20px;
+            border: 2px solid var(--border);
+            border-radius: 25px;
+            font-size: 0.95rem;
+            outline: none;
+            font-family: 'Quicksand', sans-serif;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .nav-search-input:focus {
+            border-color: var(--green);
+            box-shadow: 0 0 0 3px rgba(31, 138, 112, 0.1);
+        }
+
+        .nav-search-btn {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--green);
+            color: white;
+            border: none;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-search-btn:hover {
+            background: var(--green-dark);
+            transform: translateY(-50%) scale(1.05);
         }
 
         .nav-links {
@@ -421,6 +474,17 @@ if (isset($_GET['logout'])) {
         @media (max-width: 1024px) {
             .content-grid {
                 grid-template-columns: 1fr;
+            }
+            
+            .navbar {
+                flex-wrap: wrap;
+            }
+            
+            .nav-search-container {
+                order: 3;
+                width: 100%;
+                max-width: 100%;
+                margin-top: 12px;
             }
         }
 
@@ -662,6 +726,20 @@ if (isset($_GET['logout'])) {
             <div class="logo-text">BANTAY<span>ANI</span></div>
         </div>
         
+        <!-- Search Bar -->
+        <div class="nav-search-container">
+            <form action="search.php" method="GET" class="nav-search-form">
+                <input 
+                    type="text" 
+                    name="q" 
+                    class="nav-search-input" 
+                    placeholder="Search users, farmers, buyers..." 
+                    autocomplete="off"
+                >
+                <button type="submit" class="nav-search-btn" title="Search">🔍</button>
+            </form>
+        </div>
+        
         <div class="nav-links">
             <?php if ($user_role === 'Farmer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
@@ -683,32 +761,30 @@ if (isset($_GET['logout'])) {
         </div>
         
         <div class="user-menu">
-            <a href="./user/profile.php" class="user-menu-link">
-    <div class="user-menu">
-    <?php
-        $profile_img = trim($profile_img ?? '');
-        $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
-        $public_path   = '/bantayani/' . $profile_img;
-    ?>
+            <?php
+                $profile_img = trim($profile_img ?? '');
+                $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
+                $public_path   = '/bantayani/' . $profile_img;
+            ?>
 
-    <a href="./user/profile.php" title="View Profile">
-        <div class="user-avatar">
-            <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
-                <img src="<?= htmlspecialchars($public_path) ?>"
-                     alt="Profile"
-                     style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
-            <?php else: ?>
-                <?= strtoupper(substr($first_name, 0, 1)) ?>
-            <?php endif; ?>
+            <a href="./user/profile.php" title="View Profile">
+                <div class="user-avatar">
+                    <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
+                        <img src="<?= htmlspecialchars($public_path) ?>"
+                             alt="Profile"
+                             style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                    <?php else: ?>
+                        <?= strtoupper(substr($first_name, 0, 1)) ?>
+                    <?php endif; ?>
+                </div>
+            </a>
+
+            <form method="GET" style="display:inline;">
+                <button type="submit" name="logout" value="1" class="logout-btn">
+                    Log Out
+                </button>
+            </form>
         </div>
-    </a>
-
-    <form method="GET" style="display:inline;">
-        <button type="submit" name="logout" value="1" class="logout-btn">
-            Log Out
-        </button>
-    </form>
-</div>
     </nav>
 
     <!-- Main Content -->
@@ -855,7 +931,7 @@ if (isset($_GET['logout'])) {
                             <div class="action-desc">Track your sales and growth</div>
                         </a>
                     <?php elseif ($user_role === 'Buyer'): ?>
-                        <a href="marketplace.php" class="action-card">
+                        <a href="./buyer/marketplace.php" class="action-card">
                             <div class="action-icon">🛒</div>
                             <div class="action-title">Browse Marketplace</div>
                             <div class="action-desc">Find fresh produce</div>
@@ -881,11 +957,6 @@ if (isset($_GET['logout'])) {
                             <div class="action-title">Manage Users</div>
                             <div class="action-desc">View and verify users</div>
                         </a>
-                        <!-- <a href="reports.php" class="action-card">
-                            <div class="action-icon">📊</div>
-                            <div class="action-title">System Reports</div>
-                            <div class="action-desc">Generate system analytics</div>
-                        </a> -->
                         <a href="verification.php" class="action-card">
                             <div class="action-icon">✅</div>
                             <div class="action-title">Verification Queue</div>
