@@ -369,6 +369,143 @@ body {
     transform: scale(0.98);
 }
 
+.btn-cancel {
+    background: #e74c3c;
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+}
+
+.btn-cancel:hover {
+    background: #c0392b;
+    box-shadow: 0 6px 20px rgba(192, 57, 43, 0.5);
+}
+
+/* Orders List and Details */
+.order {
+    padding: 16px;
+    border-radius: 16px;
+    background: #f9fafb;
+    margin-bottom: 12px;
+    border-left: 4px solid var(--green);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.order-id {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.order-details {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 12px;
+    line-height: 1.6;
+}
+
+.order-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Badge Styles */
+.badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: var(--green);
+    color: #fff;
+    display: inline-block;
+}
+
+.badge.pending {
+    background: #f39c12;
+}
+
+/* Order Summary */
+.order-summary {
+    background: #f9fafb;
+    padding: 16px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    border-left: 4px solid var(--green);
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.summary-row strong {
+    color: var(--text);
+}
+
+.summary-row span {
+    color: #666;
+}
+
+/* Order Items */
+.items-header {
+    font-weight: 600;
+    color: var(--green-dark);
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-size: 1.1rem;
+}
+
+.item {
+    background: #f9fafb;
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border-left: 4px solid #e0e0e0;
+}
+
+.item-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.item-name {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.item-details {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* Back Link */
+.back-link {
+    display: inline-block;
+    margin-top: 20px;
+    color: var(--green);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.back-link:hover {
+    text-decoration: underline;
+    color: var(--green-dark);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
 /* No Results Message */
 .no-results {
     text-align: center;
@@ -541,6 +678,8 @@ body {
 .btn-cancel:hover {
     background-color: #7f1212;
 }
+
+
 }
 
 

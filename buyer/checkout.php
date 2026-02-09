@@ -74,6 +74,12 @@ $stmt->execute();
 $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
+
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: ../user/login.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html>

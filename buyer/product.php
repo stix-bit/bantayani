@@ -21,6 +21,12 @@ $sql = "SELECT ci.*, c.crop_name, f.farm_name
         WHERE ci.inventory_id = $id";
 
 $row = $conn->query($sql)->fetch_assoc();
+
+if (isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: ../user/login.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html>
