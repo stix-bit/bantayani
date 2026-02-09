@@ -19,7 +19,7 @@ $stmt->fetch();
 $stmt->close();
 
 // Get products
-$sql = "SELECT ci.inventory_id, c.crop_name, ci.price, ci.quantity, f.farm_name
+$sql = "SELECT ci.inventory_id, c.crop_name, c.unit, ci.price, ci.quantity, f.farm_name
         FROM crops_inventory ci
         JOIN crops c ON ci.crop_id = c.crop_id
         JOIN farmer_profiles f ON ci.farmer_id = f.farmer_id
@@ -99,7 +99,7 @@ if (isset($_GET['logout'])) {
                         <b><?= htmlspecialchars($row['crop_name']) ?></b>
                         <p>Farm: <?= htmlspecialchars($row['farm_name']) ?></p>
                         <p>Price: ₱<?= number_format($row['price'], 2) ?></p>
-                        <p>Available: <?= htmlspecialchars($row['quantity']) ?> units</p>
+                        <p>Available: <?= htmlspecialchars($row['quantity']) ?> <?= htmlspecialchars($row['unit']) ?></p>
                         <a class="btn" href="product.php?id=<?= $row['inventory_id'] ?>">View Details</a>
                     </div>
                 <?php } ?>

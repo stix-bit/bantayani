@@ -524,6 +524,19 @@ body {
         font-size: 0.9rem;
         padding: 6px 10px;
     }
+
+    .btn-cancel {
+    background-color: #b91c1c;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-cancel:hover {
+    background-color: #7f1212;
+}
 }
 
 
