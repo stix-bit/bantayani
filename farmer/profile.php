@@ -766,7 +766,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div>
                                 <?= getCertificateStatusBadge($doc['status']) ?>
                                 <div style="margin-top: 5px;">
-                                    <a href="<?= htmlspecialchars($doc['certificate_path']) ?>" target="_blank" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;">View</a>
+                                    <a href="<?= htmlspecialchars('/bantayani/' . ltrim($doc['certificate_path'], '/')) ?>" target="_blank" class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;">View</a>
                                 </div>
                             </div>
                         </div>

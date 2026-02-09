@@ -430,7 +430,7 @@ $stmt->close();
                                     <?= htmlspecialchars($cert['status']) ?>
                                 </div>
                                 <div class="certificate-actions">
-                                    <a href="<?= htmlspecialchars($cert['certificate_path']) ?>" target="_blank" 
+                                    <a href="<?= htmlspecialchars('/bantayani/' . ltrim($cert['certificate_path'], '/')) ?>" target="_blank" 
                                        class="btn btn-secondary btn-small">View</a>
                                 </div>
                             </div>

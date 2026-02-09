@@ -592,7 +592,7 @@ $stats_stmt->close();
                                     <div class="detail-item" style="grid-column: 1 / -1;">
                                         <strong>Certificate:</strong>
                                         <span>
-                                            <a href="<?= htmlspecialchars($verification['certificate_path']) ?>" 
+                                            <a href="<?= htmlspecialchars('/bantayani/' . ltrim($verification['certificate_path'], '/')) ?>" 
                                                target="_blank" class="certificate-link">View Document</a>
                                         </span>
                                     </div>
@@ -682,7 +682,7 @@ $stats_stmt->close();
                                 <div class="detail-item">
                                     <strong>Certificate:</strong>
                                     <span>
-                                        <a href="<?= htmlspecialchars($verification['certificate_path']) ?>" 
+                                        <a href="<?= htmlspecialchars('/bantayani/' . ltrim($verification['certificate_path'], '/')) ?>" 
                                            target="_blank" class="certificate-link">View Document</a>
                                     </span>
                                 </div>
