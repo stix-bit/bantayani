@@ -90,6 +90,16 @@ function validateRegistrationInput(array $data, ?array $profileImage, ?array $fa
             if (trim($data['company_name'] ?? '') === '' || trim($data['company_address'] ?? '') === '' || trim($data['contact_person'] ?? '') === '' || trim($data['tax_id'] ?? '') === '') {
                 $errors[] = 'Company name, address, contact person, and tax ID are required for company buyers.';
             }
+            
+            // Validate company name length
+            if (strlen(trim($data['company_name'] ?? '')) > 100) {
+                $errors[] = 'Company name must be 100 characters or less.';
+            }
+            
+            // Validate tax ID format and length
+            if (strlen(trim($data['tax_id'] ?? '')) > 50) {
+                $errors[] = 'Tax ID must be 50 characters or less.';
+            }
         }
     }
 
@@ -153,10 +163,33 @@ function createUserWithProfiles(
         $buyerStmt->close();
 
         if ($data['buyer_type'] === 'Company') {
-            $companyStmt = $conn->prepare('INSERT INTO companies (buyer_id, company_name, company_address, contact_person, tax_id) VALUES (?, ?, ?, ?, ?)');
-            $companyStmt->bind_param('issss', $userId, $data['company_name'], $data['company_address'], $data['contact_person'], $data['tax_id']);
-            $companyStmt->execute();
-            $companyStmt->close();
+            // Check if company already exists by tax_id or company_name
+            $checkCompanyStmt = $conn->prepare('SELECT company_id FROM companies WHERE tax_id = ? OR company_name = ? LIMIT 1');
+            $checkCompanyStmt->bind_param('ss', $data['tax_id'], $data['company_name']);
+            $checkCompanyStmt->execute();
+            $checkCompanyStmt->store_result();
+            
+            if ($checkCompanyStmt->num_rows > 0) {
+                $checkCompanyStmt->bind_result($existingCompanyId);
+                $checkCompanyStmt->fetch();
+                $companyId = $existingCompanyId;
+                $checkCompanyStmt->close();
+            } else {
+                $checkCompanyStmt->close();
+                // Insert new company
+                $companyStmt = $conn->prepare('INSERT INTO companies (company_name, company_address, contact_person, tax_id) VALUES (?, ?, ?, ?)');
+                $companyStmt->bind_param('ssss', $data['company_name'], $data['company_address'], $data['contact_person'], $data['tax_id']);
+                $companyStmt->execute();
+                $companyId = $conn->insert_id;
+                $companyStmt->close();
+            }
+            
+            // Link buyer to company
+            $companyBuyerStmt = $conn->prepare('INSERT INTO company_buyers (company_id, buyer_id, role_in_company) VALUES (?, ?, ?)');
+            $roleInCompany = 'Employee'; // Default role, can be enhanced later
+            $companyBuyerStmt->bind_param('iis', $companyId, $userId, $roleInCompany);
+            $companyBuyerStmt->execute();
+            $companyBuyerStmt->close();
         }
     } else {
         $farmerStmt = $conn->prepare('INSERT INTO farmer_profiles (farmer_id, farm_name, farm_location, farm_img_path) VALUES (?, ?, ?, ?)');
@@ -269,7 +302,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (mysqli_sql_exception $exception) {
             mysqli_rollback($conn);
             deleteUploadedFiles($uploadedRelativePaths);
-            $errors[] = 'An unexpected error occurred. Please try again later.';
+            
+            // Handle specific duplicate company errors
+            if (strpos($exception->getMessage(), 'Duplicate entry') !== false && strpos($exception->getMessage(), 'company_name') !== false) {
+                $errors[] = 'A company with this name already exists. Please contact your administrator or use a different company name.';
+            } elseif (strpos($exception->getMessage(), 'Duplicate entry') !== false && strpos($exception->getMessage(), 'tax_id') !== false) {
+                $errors[] = 'A company with this Tax ID already exists. Please verify your Tax ID or contact your administrator.';
+            } else {
+                $errors[] = 'An unexpected error occurred during registration. Please try again later.';
+            }
         }
     } elseif (!empty($uploadedRelativePaths)) {
         deleteUploadedFiles($uploadedRelativePaths);

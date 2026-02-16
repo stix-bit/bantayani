@@ -48,21 +48,39 @@ CREATE TABLE IF NOT EXISTS `buyer_profiles` (
 ) ENGINE = InnoDB;
 
 -- -----------------------------------------------------
--- Table `companies` (for company-specific info)
+-- Table `companies` (independent company records)
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `companies` (
   `company_id` INT NOT NULL AUTO_INCREMENT,
-  `buyer_id` INT NOT NULL,
   `company_name` VARCHAR(100) NOT NULL,
   `company_address` VARCHAR(255) NULL,
   `contact_person` VARCHAR(100) NULL,
   `tax_id` VARCHAR(50) NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`company_id`),
-  INDEX `fk_companies_buyer_idx` (`buyer_id` ASC),
-  CONSTRAINT `fk_companies_buyer`
+  UNIQUE INDEX `company_name_UNIQUE` (`company_name` ASC),
+  UNIQUE INDEX `tax_id_UNIQUE` (`tax_id` ASC)
+) ENGINE=InnoDB;
+
+-- -----------------------------------------------------
+-- Table `company_buyers` (junction table for many-to-many relationship)
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `company_buyers` (
+  `company_id` INT NOT NULL,
+  `buyer_id` INT NOT NULL,
+  `role_in_company` VARCHAR(50) NULL DEFAULT 'Employee',
+  `joined_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`company_id`, `buyer_id`),
+  INDEX `fk_company_buyers_companies_idx` (`company_id` ASC),
+  INDEX `fk_company_buyers_buyer_profiles_idx` (`buyer_id` ASC),
+  CONSTRAINT `fk_company_buyers_companies`
+    FOREIGN KEY (`company_id`)
+    REFERENCES `companies` (`company_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_company_buyers_buyer_profiles`
     FOREIGN KEY (`buyer_id`)
-    REFERENCES `buyer_profiles`(`buyer_id`)
+    REFERENCES `buyer_profiles` (`buyer_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE
 ) ENGINE=InnoDB;
@@ -105,10 +123,15 @@ CREATE TABLE IF NOT EXISTS `crops_inventory` (
   `crop_id` INT NOT NULL,
   `quantity` DECIMAL(10,2) NULL,
   `harvest_date` DATE NULL,
+  `harvest_status` ENUM('Scheduled','Confirmed','Cancelled') NOT NULL DEFAULT 'Scheduled',
+  `harvest_confirmed_at` DATETIME NULL,
+  `harvest_cancelled_at` DATETIME NULL,
+  `harvest_notification_seen_at` DATETIME NULL,
   `price` DECIMAL(10,2) NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`inventory_id`),
   INDEX `fk_crops_inventory_crops1_idx` (`crop_id` ASC),
+  INDEX `idx_crops_inventory_farmer_harvestdate_status` (`farmer_id` ASC, `harvest_date` ASC, `harvest_status` ASC),
   CONSTRAINT `fk_crops_inventory_farmer_profiles1`
     FOREIGN KEY (`farmer_id`)
     REFERENCES `farmer_profiles` (`farmer_id`)

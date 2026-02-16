@@ -6,13 +6,57 @@ require_once '../includes/config.php';
 
 $farmer_id = $_SESSION['user_id'];
 
+$errors = $errors ?? [];
+$success = $success ?? '';
+
+// Handle Harvest Confirmation/Cancel actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['harvest_action'])) {
+    $inventory_id = (int)($_POST['inventory_id'] ?? 0);
+    $harvest_action = $_POST['harvest_action'];
+
+    if ($inventory_id > 0 && ($harvest_action === 'confirm' || $harvest_action === 'cancel')) {
+        if ($harvest_action === 'confirm') {
+            $stmt = $conn->prepare("UPDATE crops_inventory SET harvest_status = 'Confirmed', harvest_confirmed_at = NOW() WHERE inventory_id = ? AND farmer_id = ?");
+            $stmt->bind_param('ii', $inventory_id, $farmer_id);
+            $stmt->execute();
+            $stmt->close();
+            $_SESSION['message'] = 'Harvest confirmed successfully.';
+        } else {
+            $stmt = $conn->prepare("UPDATE crops_inventory SET harvest_status = 'Cancelled', harvest_cancelled_at = NOW() WHERE inventory_id = ? AND farmer_id = ?");
+            $stmt->bind_param('ii', $inventory_id, $farmer_id);
+            $stmt->execute();
+            $stmt->close();
+            $_SESSION['message'] = 'Harvest schedule cancelled.';
+        }
+    }
+
+    header('Location: inventory.php');
+    exit;
+}
+
 // Handle Add/Edit/Delete actions
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'add') {
-    $crop_id = $_POST['crop_id'];
+    $crop_id = (int)($_POST['crop_id'] ?? 0);
+    if ($crop_id <= 0) {
+        $crop_name = trim($_POST['crop_name'] ?? '');
+        if ($crop_name !== '') {
+            $lookup = $conn->prepare('SELECT crop_id FROM crops WHERE LOWER(crop_name) = LOWER(?) LIMIT 1');
+            $lookup->bind_param('s', $crop_name);
+            $lookup->execute();
+            $lookup->bind_result($crop_id);
+            $lookup->fetch();
+            $lookup->close();
+            $crop_id = (int)$crop_id;
+        }
+    }
     $quantity = $_POST['quantity'];
     $harvest_date = $_POST['harvest_date'];
     $price = $_POST['price'];
+
+    if ($crop_id <= 0) {
+        $errors[] = 'Please select a valid crop.';
+    }
 
     // Check if farmer already has this crop
     $check = $conn->prepare("SELECT inventory_id FROM crops_inventory WHERE farmer_id=? AND crop_id=?");
@@ -20,28 +64,46 @@ if (isset($_POST['action'])) {
     $check->execute();
     $check->store_result();
 
-    if ($check->num_rows > 0) {
+    if (empty($errors) && $check->num_rows > 0) {
         $errors[] = "You already have this crop in your inventory. Please edit it instead.";
-    } else {
+    } else if (empty($errors)) {
         $stmt = $conn->prepare("INSERT INTO crops_inventory (farmer_id, crop_id, quantity, harvest_date, price) VALUES (?, ?, ?, ?, ?)");
         $stmt->bind_param("iidsd", $farmer_id, $crop_id, $quantity, $harvest_date, $price);
         $stmt->execute();
         $stmt->close();
-        $success = "Crop added successfully!";
+        $_SESSION['message'] = 'Crop added successfully!';
     }
     $check->close();
 }
 
     if ($_POST['action'] === 'edit') {
         $inventory_id = $_POST['inventory_id'];
-        $crop_id = $_POST['crop_id'];
+        $crop_id = (int)($_POST['crop_id'] ?? 0);
+        if ($crop_id <= 0) {
+            $crop_name = trim($_POST['crop_name'] ?? '');
+            if ($crop_name !== '') {
+                $lookup = $conn->prepare('SELECT crop_id FROM crops WHERE LOWER(crop_name) = LOWER(?) LIMIT 1');
+                $lookup->bind_param('s', $crop_name);
+                $lookup->execute();
+                $lookup->bind_result($crop_id);
+                $lookup->fetch();
+                $lookup->close();
+                $crop_id = (int)$crop_id;
+            }
+        }
         $quantity = $_POST['quantity'];
         $harvest_date = $_POST['harvest_date'];
         $price = $_POST['price'];
 
-        $stmt = $conn->prepare("UPDATE crops_inventory SET crop_id = ?, quantity = ?, harvest_date = ?, price = ? WHERE inventory_id = ? AND farmer_id = ?");
-        $stmt->bind_param("idsdii", $crop_id, $quantity, $harvest_date, $price, $inventory_id, $farmer_id);
-        $stmt->execute();
+        if ($crop_id > 0) {
+            $stmt = $conn->prepare("UPDATE crops_inventory SET crop_id = ?, quantity = ?, harvest_date = ?, price = ? WHERE inventory_id = ? AND farmer_id = ?");
+            $stmt->bind_param("idsdii", $crop_id, $quantity, $harvest_date, $price, $inventory_id, $farmer_id);
+            $stmt->execute();
+            $stmt->close();
+            $_SESSION['message'] = 'Crop updated successfully!';
+        } else {
+            $errors[] = 'Please select a valid crop.';
+        }
     }
 
     if ($_POST['action'] === 'delete') {
@@ -49,10 +111,14 @@ if (isset($_POST['action'])) {
         $stmt = $conn->prepare("DELETE FROM crops_inventory WHERE inventory_id = ? AND farmer_id = ?");
         $stmt->bind_param("ii", $inventory_id, $farmer_id);
         $stmt->execute();
+        $stmt->close();
+        $_SESSION['message'] = 'Crop deleted successfully!';
     }
 
-    header("Location: inventory.php");
-    exit;
+    if (empty($errors)) {
+        header("Location: inventory.php");
+        exit;
+    }
 }
 
 // Fetch all crops
@@ -71,6 +137,30 @@ $stmt->bind_param("i", $farmer_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $inventory = $result->fetch_all(MYSQLI_ASSOC);
+
+// Fetch due harvest schedules (today or earlier) that are still scheduled
+$due_stmt = $conn->prepare("
+    SELECT ci.inventory_id, ci.harvest_date, ci.quantity, c.crop_name, c.unit
+    FROM crops_inventory ci
+    JOIN crops c ON ci.crop_id = c.crop_id
+    WHERE ci.farmer_id = ?
+      AND ci.harvest_date IS NOT NULL
+      AND ci.harvest_date <= CURDATE()
+      AND (ci.harvest_status IS NULL OR ci.harvest_status = 'Scheduled')
+    ORDER BY ci.harvest_date ASC
+");
+$due_stmt->bind_param('i', $farmer_id);
+$due_stmt->execute();
+$due_harvests = $due_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$due_stmt->close();
+
+// Mark notifications as seen (best-effort)
+if (!empty($due_harvests)) {
+    $mark_seen = $conn->prepare("UPDATE crops_inventory SET harvest_notification_seen_at = IFNULL(harvest_notification_seen_at, NOW()) WHERE farmer_id = ? AND harvest_date <= CURDATE() AND (harvest_status IS NULL OR harvest_status = 'Scheduled')");
+    $mark_seen->bind_param('i', $farmer_id);
+    $mark_seen->execute();
+    $mark_seen->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -204,6 +294,58 @@ $inventory = $result->fetch_all(MYSQLI_ASSOC);
     </div>
 
     <div class="content">
+        <?php if (!empty($errors)): ?>
+            <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px 16px;border-radius:12px;margin-bottom:16px;">
+                <?php foreach ($errors as $e): ?>
+                    <div><?= htmlspecialchars($e) ?></div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($_SESSION['message'])): ?>
+            <div style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:12px 16px;border-radius:12px;margin-bottom:16px;">
+                <?= htmlspecialchars($_SESSION['message']) ?>
+            </div>
+            <?php unset($_SESSION['message']); ?>
+        <?php endif; ?>
+
+        <?php if (!empty($due_harvests)): ?>
+            <div class="table-card" style="margin-bottom:18px; border-left: 4px solid var(--orange);">
+                <div class="table-header">
+                    <h3>Harvest Due Today</h3>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Crop</th>
+                            <th>Quantity</th>
+                            <th>Scheduled Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($due_harvests as $h): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($h['crop_name']) ?></td>
+                                <td><?= htmlspecialchars($h['quantity'].' '.$h['unit']) ?></td>
+                                <td><?= htmlspecialchars($h['harvest_date']) ?></td>
+                                <td>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
+                                        <button type="submit" name="harvest_action" value="confirm" class="confirm-btn">Confirm Harvest</button>
+                                    </form>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
+                                        <button type="submit" name="harvest_action" value="cancel" class="confirm-btn danger">Cancel</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+
         <div class="table-card">
             <div class="table-header">
                 <h3>My Crops</h3>
@@ -227,7 +369,7 @@ $inventory = $result->fetch_all(MYSQLI_ASSOC);
                             <td><?= htmlspecialchars($item['harvest_date']) ?></td>
                             <td><?= number_format($item['price'],2) ?></td>
                             <td>
-                                <button class="icon-btn edit-btn" onclick="openEditModal(<?= $item['inventory_id'] ?>, <?= $item['crop_id'] ?>, <?= $item['quantity'] ?>, '<?= $item['harvest_date'] ?>', <?= $item['price'] ?>)"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button class="icon-btn edit-btn" onclick="openEditModal(<?= $item['inventory_id'] ?>, <?= $item['crop_id'] ?>, '<?= htmlspecialchars($item['crop_name'], ENT_QUOTES) ?>', <?= $item['quantity'] ?>, '<?= $item['harvest_date'] ?>', <?= $item['price'] ?>)"><i class="fa-solid fa-pen-to-square"></i></button>
                                 <button class="icon-btn delete-btn" onclick="openDeleteModal(<?= $item['inventory_id'] ?>)"><i class="fa-solid fa-trash"></i></button>
                             </td>
                         </tr>
@@ -249,11 +391,8 @@ $inventory = $result->fetch_all(MYSQLI_ASSOC);
         <form method="POST">
             <input type="hidden" name="action" value="add">
             <label>Crop</label>
-            <select name="crop_id" required>
-                <?php foreach ($crops as $crop): ?>
-                    <option value="<?= $crop['crop_id'] ?>"><?= htmlspecialchars($crop['crop_name'].' ('.$crop['unit'].')') ?></option>
-                <?php endforeach; ?>
-            </select>
+            <input type="text" name="crop_name" id="addCropName" list="cropList" required>
+            <input type="hidden" name="crop_id" id="addCropId">
             <label>Quantity</label><input type="number" step="0.01" name="quantity" required>
             <label>Harvest Date</label><input type="date" name="harvest_date" required>
             <label>Price</label><input type="number" step="0.01" name="price" required>
@@ -273,11 +412,8 @@ $inventory = $result->fetch_all(MYSQLI_ASSOC);
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="inventory_id" id="editInventoryId">
             <label>Crop</label>
-            <select name="crop_id" id="editCropId" required>
-                <?php foreach ($crops as $crop): ?>
-                    <option value="<?= $crop['crop_id'] ?>"><?= htmlspecialchars($crop['crop_name'].' ('.$crop['unit'].')') ?></option>
-                <?php endforeach; ?>
-            </select>
+            <input type="text" name="crop_name" id="editCropName" list="cropList" required>
+            <input type="hidden" name="crop_id" id="editCropId">
             <label>Quantity</label><input type="number" id="editQuantity" step="0.01" name="quantity" required>
             <label>Harvest Date</label><input type="date" id="editHarvestDate" name="harvest_date" required>
             <label>Price</label><input type="number" id="editPrice" step="0.01" name="price" required>
@@ -288,6 +424,12 @@ $inventory = $result->fetch_all(MYSQLI_ASSOC);
         </form>
     </div>
 </div>
+
+<datalist id="cropList">
+    <?php foreach ($crops as $crop): ?>
+        <option value="<?= htmlspecialchars($crop['crop_name']) ?>" data-id="<?= (int)$crop['crop_id'] ?>"></option>
+    <?php endforeach; ?>
+</datalist>
 
 <!-- Delete Modal -->
 <div id="deleteModal" class="modal">
@@ -309,8 +451,25 @@ $inventory = $result->fetch_all(MYSQLI_ASSOC);
 function openAddModal() { document.getElementById('addModal').style.display='flex'; }
 function closeAddModal() { document.getElementById('addModal').style.display='none'; }
 
-function openEditModal(id, crop_id, quantity, harvest_date, price) {
+function syncCropId(textInputId, hiddenInputId) {
+    var val = document.getElementById(textInputId).value;
+    var opts = document.getElementById('cropList').options;
+    var id = '';
+    for (var i = 0; i < opts.length; i++) {
+        if (opts[i].value === val) {
+            id = opts[i].dataset.id || '';
+            break;
+        }
+    }
+    document.getElementById(hiddenInputId).value = id;
+}
+
+document.getElementById('addCropName').addEventListener('input', function() { syncCropId('addCropName', 'addCropId'); });
+document.getElementById('editCropName').addEventListener('input', function() { syncCropId('editCropName', 'editCropId'); });
+
+function openEditModal(id, crop_id, crop_name, quantity, harvest_date, price) {
     document.getElementById('editInventoryId').value = id;
+    document.getElementById('editCropName').value = crop_name;
     document.getElementById('editCropId').value = crop_id;
     document.getElementById('editQuantity').value = quantity;
     document.getElementById('editHarvestDate').value = harvest_date;
