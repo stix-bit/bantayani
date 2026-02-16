@@ -1,4 +1,37 @@
 <?php
+session_start();
+require_once "../includes/config.php";
+
+$farmer_id = $_SESSION['user_id'];
+
+// weather alerts
+$weather_alerts = [];
+$result = $conn->query("
+    SELECT * FROM weather_alerts
+    ORDER BY created_at DESC
+    LIMIT 5
+");
+
+if ($result) {
+    $weather_alerts = $result->fetch_all(MYSQLI_ASSOC);
+}
+
+// yield analytics
+$analytics_stmt = $conn->prepare("
+    SELECT 
+        COUNT(*) as total_crops,
+        IFNULL(SUM(quantity),0) as total_quantity,
+        IFNULL(AVG(quantity),0) as avg_yield
+    FROM crops_inventory
+    WHERE farmer_id = ?
+");
+$analytics_stmt->bind_param("i", $farmer_id);
+$analytics_stmt->execute();
+$analytics = $analytics_stmt->get_result()->fetch_assoc();
+$analytics_stmt->close();
+?>
+
+<?php
 // No output before authentication check
 require_once __DIR__ . '/../includes/auth_helper.php';
 require_login('Farmer');
@@ -166,21 +199,102 @@ if (!empty($due_harvests)) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Manage Inventory - BANTAY-ANI</title>
+    <title>Inventory - BANTAY-ANI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="index.php" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
     <style>
-        /* Simple styling for table and modals */
-        body { font-family: Arial, sans-serif; background: #f6f6f6; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }
-        th { background: #eee; }
-        button { padding: 6px 12px; margin: 2px; cursor: pointer; }
-        .modal { display: none; position: fixed; inset:0; background: rgba(0,0,0,0.4); justify-content:center; align-items:center; }
-        .modal-box { background:white; padding:20px; border-radius:10px; width: 320px; }
-        .modal-box h3 { margin-bottom: 12px; }
-        .modal-box input, .modal-box select { width:100%; padding:6px; margin-bottom:10px; }
+        .table-card {
+    background: white;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    margin-bottom: 16px;   /* less space between cards */
+    max-width: 100%;
+    
+}
+
+.table-header {
+    padding: 16px 20px;   /* smaller padding */
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.data-table th, .data-table td {
+    padding: 12px 16px;  /* smaller cell padding */
+    font-size: 0.9rem;   /* smaller font */
+}
+
+.table-card div {
+    gap: 30px;           /* less gap in analytics panel */
+    font-size: 0.95rem;  
+}
+
+.topbar {
+    padding: 16px 24px;   /* slightly smaller topbar */
+}
+
+.page-title h1 {
+    font-size: 1.6rem;
+}
+
+.page-title p {
+    font-size: 0.9rem;
+}
+
+/* Chart */
+#yieldChart {
+    max-width: 400px;  /* smaller chart width */
+    height: 220px;     /* smaller chart height */
+    margin-bottom: 16px;
+}
+    </style>
+
+    <!-- NEW: Replace old basic styles with this clean & spacious CSS -->
+    <style>
+        body { font-family: 'Quicksand', 'Segoe UI', sans-serif; background: var(--beige-light); color: var(--text); display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar { width: var(--sidebar-width); background: white; border-right: 1px solid var(--border); position: fixed; height: 100vh; overflow-y: auto; box-shadow: var(--shadow-sm); padding-bottom: 40px; }
+
+        .logo-container { padding: 24px; border-bottom: 1px solid var(--border); }
+        .nav-section { padding: 24px 0; }
+        .nav-links .nav-link { padding: 16px 24px; margin-bottom:4px; border-radius: var(--radius-sm); }
+
+        /* Main content */
+        .main-content { flex: 1; margin-left: var(--sidebar-width); min-height: 100vh; }
+        .topbar { background: white; padding: 24px 32px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow-sm); }
+
+        .page-title h1 { font-size: 2rem; margin-bottom: 4px; }
+        .page-title p { color: var(--text-light); font-size: 1rem; }
+
+        /* Table cards */
+        .table-card { background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 24px; }
+        .table-header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .data-table th, .data-table td { padding: 18px 24px; }
+        .data-table th { background: #f9fafb; color: var(--text-light); font-weight: 600; }
+        .data-table td { border-bottom: 1px solid var(--border); }
+
+        /* Buttons */
+        .icon-btn { border: none; background: none; cursor: pointer; font-size: 1.2rem; margin-right: 8px; transition: transform 0.2s; }
+        .icon-btn:hover { transform: scale(1.2); }
+        .confirm-btn { padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        .confirm-btn.danger { background: #b91c1c; color:white; }
+
+        /* Modals */
+        .modal-box { background:white; padding:28px; border-radius:18px; width: 360px; max-width: 95%; }
+        .modal-box h3 { margin-bottom: 16px; font-size: 1.3rem; }
+        .modal-box label { display:block; margin-top:12px; font-weight:600; font-size:0.95rem; }
+        .modal-box input, .modal-box select { width:100%; padding:10px; margin-top:6px; border:1px solid #ccc; border-radius:8px; font-size:0.95rem; }
+
+        /* Spacing for analytics panel */
+        .table-card > div { gap: 50px; font-size:1rem; }
     </style>
 </head>
+
 <body>
     <!DOCTYPE html>
 <html lang="en">
@@ -285,13 +399,59 @@ if (!empty($due_harvests)) {
 </aside>
 
 <main class="main-content">
-    <div class="topbar">
-        <div class="page-title">
-            <h1>Inventory Management</h1>
-            <p>Manage your crops inventory</p>
-        </div>
-        <button onclick="openAddModal()" class="confirm-btn">Add Crop</button>
+    <div style="width:100%; max-width:1200px; margin:0 auto; padding:32px 24px;">
+    <div class="topbar" style="justify-content:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
+    <div class="page-title">
+        <h1>Inventory Management</h1>
+        <p>Manage your crops inventory</p>
     </div>
+    <button onclick="openAddModal()" class="confirm-btn">Add Crop</button>
+</div>
+
+    <!-- Weather Alerts Panel -->
+<?php if (!empty($weather_alerts)): ?>
+<div class="table-card" style="margin:20px 0; width:100%; box-sizing:border-box; padding:24px;">
+    <div class="table-header"><h3>Weather Alerts</h3></div>
+    <table class="data-table">
+        <thead>
+            <tr><th>Title</th><th>Message</th><th>Severity</th></tr>
+        </thead>
+        <tbody>
+            <?php foreach ($weather_alerts as $alert): ?>
+                <tr>
+                    <td><?= htmlspecialchars($alert['title']) ?></td>
+                    <td><?= htmlspecialchars($alert['message']) ?></td>
+                    <td><?= htmlspecialchars($alert['severity']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+<?php endif; ?>
+
+<!-- Yield Analytics Panel -->
+<div class="table-card" style="margin:20px 0; width:100%; box-sizing:border-box; padding:24px;">
+    <div class="table-header" style="text-align:center;">
+        <h3>Yield Analytics</h3>
+    </div>
+    <div style="display:flex; justify-content:center; gap:30px; padding:16px; flex-wrap:wrap;">
+        <div>
+            <strong>Total Harvest Records</strong><br><?= $analytics['total_crops'] ?>
+        </div>
+        <div>
+            <strong>Total Yield</strong><br><?= $analytics['total_quantity'] ?>
+        </div>
+        <div>
+            <strong>Average Yield</strong><br><?= number_format($analytics['avg_yield'],2) ?>
+        </div>
+    </div>
+    <!-- Yield Chart -->
+    <canvas id="yieldChart" style="max-width:400px; height:220px; margin:16px auto; display:block;"></canvas>
+</div>
+
+
+
 
     <div class="content">
         <?php if (!empty($errors)): ?>
@@ -310,7 +470,7 @@ if (!empty($due_harvests)) {
         <?php endif; ?>
 
         <?php if (!empty($due_harvests)): ?>
-            <div class="table-card" style="margin-bottom:18px; border-left: 4px solid var(--orange);">
+            <div class="table-card" style="margin:20px 0; width:100%; box-sizing:border-box; padding:24px;">
                 <div class="table-header">
                     <h3>Harvest Due Today</h3>
                 </div>
@@ -346,7 +506,8 @@ if (!empty($due_harvests)) {
             </div>
         <?php endif; ?>
 
-        <div class="table-card">
+        <div class="table-card" style="margin:20px 0; width:100%; box-sizing:border-box; padding:24px;"></div>
+            
             <div class="table-header">
                 <h3>My Crops</h3>
             </div>
@@ -380,6 +541,7 @@ if (!empty($due_harvests)) {
                 </tbody>
             </table>
         </div>
+    </div>
     </div>
 </main>
 
@@ -481,5 +643,23 @@ function closeEditModal() { document.getElementById('editModal').style.display='
 function openDeleteModal(id) { document.getElementById('deleteInventoryId').value = id; document.getElementById('deleteModal').style.display='flex'; }
 function closeDeleteModal() { document.getElementById('deleteModal').style.display='none'; }
 </script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<canvas id="yieldChart" style="max-width:600px;margin-bottom:20px;"></canvas>
+<script>
+const ctx = document.getElementById('yieldChart');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['Total Yield'],
+        datasets: [{
+            label: 'Quantity',
+            data: [<?= $analytics['total_quantity'] ?>],
+            backgroundColor: 'rgba(29, 78, 216, 0.7)'
+        }]
+    },
+    options: { responsive:true, plugins:{ legend:{ display:false } } }
+});
+</script>
+
 </body>
 </html>
