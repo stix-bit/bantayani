@@ -748,7 +748,7 @@ if (!isset($_SESSION['user_id'])) {
                 <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
-                <a href="./buyer/farmers.php" class="nav-link">Farmers</a>
+                <a href="search.php" class="nav-link">Farmers</a>
             <?php elseif ($user_role === 'Admin'): ?>
                 <a href="./admin/index.php" class="nav-link active">Dashboard</a>
                 <a href="./admin/users.php" class="nav-link">Users</a>
@@ -936,7 +936,7 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="action-title">My Orders</div>
                             <div class="action-desc">Track your purchases</div>
                         </a>
-                        <a href="farmers.php" class="action-card">
+                        <a href="search.php" class="action-card">
                             <div class="action-icon">👨‍🌾</div>
                             <div class="action-title">Browse Farmers</div>
                             <div class="action-desc">Connect with local farmers</div>

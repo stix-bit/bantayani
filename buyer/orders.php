@@ -19,10 +19,8 @@ SELECT
     o.order_id,
     o.order_date,
     o.order_status,
-    d.delivery_status,
     p.payment_status
 FROM orders o
-LEFT JOIN deliveries d ON o.order_id = d.order_id
 LEFT JOIN payment p ON o.order_id = p.order_id
 WHERE o.buyer_id = ?
 ORDER BY o.order_date DESC
