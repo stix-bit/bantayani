@@ -9,27 +9,34 @@ if (!isset($_SESSION['cart'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == "POST") {
+    $pool_id = (int)($_POST['pool_id'] ?? 0);
     $inventory_id = (int)($_POST['inventory_id'] ?? 0);
-    $qty_posted = (int)($_POST['qty'] ?? 0);
-    if ($inventory_id > 0 && $qty_posted > 0) {
-        // Check available stock
+    $qty_posted = (float)($_POST['qty'] ?? 0);
+
+    if ($pool_id > 0 && $qty_posted > 0) {
+        // Add cooperative pool item (key: p_POOL_ID)
+        $key = 'p_' . $pool_id;
+        $stmt = $conn->prepare("SELECT total_quantity FROM cooperative_pools WHERE pool_id = ?");
+        $stmt->bind_param("i", $pool_id);
+        $stmt->execute();
+        $stmt->bind_result($available);
+        $stmt->fetch();
+        $stmt->close();
+        $current = isset($_SESSION['cart'][$key]) ? (float)$_SESSION['cart'][$key] : 0;
+        $newQty = $current + $qty_posted;
+        if (is_numeric($available) && $newQty > (float)$available) $newQty = (float)$available;
+        $_SESSION['cart'][$key] = $newQty;
+    } elseif ($inventory_id > 0 && $qty_posted > 0) {
+        // Add individual farmer inventory item
         $stmtInv = $conn->prepare("SELECT quantity FROM crops_inventory WHERE inventory_id = ?");
         $stmtInv->bind_param("i", $inventory_id);
         $stmtInv->execute();
         $stmtInv->bind_result($available);
         $stmtInv->fetch();
         $stmtInv->close();
-
         $current = isset($_SESSION['cart'][$inventory_id]) ? (int)$_SESSION['cart'][$inventory_id] : 0;
-        $newQty = $current + $qty_posted;
-
-        // Cap to available stock if known
-        if (is_numeric($available)) {
-            if ($newQty > $available) {
-                $newQty = $available;
-            }
-        }
-
+        $newQty = $current + (int)$qty_posted;
+        if (is_numeric($available) && $newQty > $available) $newQty = (int)$available;
         $_SESSION['cart'][$inventory_id] = $newQty;
     }
 }
@@ -61,8 +68,8 @@ $stmt->close();
         
         <div class="nav-links">
             <a href="../index.php" class="nav-link">Dashboard</a>
-            <a href="marketplace.php" class="nav-link active">Marketplace</a>
-            <a href="cart.php" class="nav-link">Cart</a>
+            <a href="marketplace.php" class="nav-link">Marketplace</a>
+            <a href="cart.php" class="nav-link active">Cart</a>
             <a href="orders.php" class="nav-link">My Orders</a>
             <a href="profile.php" class="nav-link">Profile</a>
             <a href="ratings.php" class="nav-link">Ratings</a>
@@ -91,34 +98,87 @@ $stmt->close();
         </div>
     </nav>
 
-    <br>
+    <div class="main-container">
+        <div class="page-header">
+            <h1>🛒 Your Cart</h1>
+            <p>Review your items before checkout</p>
+        </div>
 
-<h2>Your Cart</h2>
+        <div class="cart-card">
+            <h2 class="card-title">Cart</h2>
 
-<?php
-$total = 0;
-foreach ($_SESSION['cart'] as $id => $qty) {
-    $stmt = $conn->prepare("SELECT ci.price, c.crop_name
-        FROM crops_inventory ci
-        JOIN crops c ON ci.crop_id = c.crop_id
-        WHERE ci.inventory_id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    $row = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+            <?php
+            $total = 0;
+            $has_pool_price = false;
+            $cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
+            if ($cols && $cols->num_rows > 0) $has_pool_price = true;
 
-    $subtotal = $row['price'] * $qty;
-    $total += $subtotal;
-?>
-<div class="cart-item">
-    <b><?= $row['crop_name'] ?></b><br>
-    Quantity: <?= $qty ?><br>
-    Subtotal: ₱<?= $subtotal ?>
-</div>
-<?php } ?>
+            if (empty($_SESSION['cart'])): ?>
+                <div class="cart-empty-msg">
+                    Your cart is empty.<br>
+                    <a href="marketplace.php">Browse Marketplace</a> or try <a href="marketplace.php">Cooperative Pools</a> for bulk orders.
+                </div>
+            <?php else:
+                foreach ($_SESSION['cart'] as $id => $qty) {
+                    $qty = (float)$qty;
+                    if ($qty <= 0) continue;
 
-<div class="total">Total: ₱<?= $total ?></div>
-<a class="btn" href="checkout.php">Checkout</a>
+                    if (is_string($id) && strpos($id, 'p_') === 0) {
+                        $pool_id = (int)substr($id, 2);
+                        $stmt = $conn->prepare("SELECT p.total_quantity, c.crop_name, c.unit" . ($has_pool_price ? ", p.unit_price" : "") . " FROM cooperative_pools p JOIN crops c ON p.crop_id = c.crop_id WHERE p.pool_id = ?");
+                        $stmt->bind_param("i", $pool_id);
+                        $stmt->execute();
+                        $row = $stmt->get_result()->fetch_assoc();
+                        $stmt->close();
+                        if (!$row) continue;
+                        $price = ($has_pool_price && isset($row['unit_price']) && $row['unit_price'] != null) ? (float)$row['unit_price'] : 0;
+                        $subtotal = $price * $qty;
+                        $total += $subtotal;
+            ?>
+            <div class="cart-item-row">
+                <div>
+                    <div class="cart-item-name"><?= htmlspecialchars($row['crop_name']) ?> <span style="font-size:0.85rem; color:var(--text-light); font-weight:500;">(Cooperative)</span></div>
+                    <div class="cart-item-meta"><?= number_format($qty, 2) ?> <?= htmlspecialchars($row['unit']) ?></div>
+                </div>
+                <div class="cart-item-subtotal">₱<?= number_format($subtotal, 2) ?></div>
+            </div>
+            <?php
+                    } else {
+                        $inv_id = (int)$id;
+                        $stmt = $conn->prepare("SELECT ci.price, c.crop_name, c.unit FROM crops_inventory ci JOIN crops c ON ci.crop_id = c.crop_id WHERE ci.inventory_id = ?");
+                        $stmt->bind_param("i", $inv_id);
+                        $stmt->execute();
+                        $row = $stmt->get_result()->fetch_assoc();
+                        $stmt->close();
+                        if (!$row) continue;
+                        $subtotal = (float)$row['price'] * $qty;
+                        $total += $subtotal;
+            ?>
+            <div class="cart-item-row">
+                <div>
+                    <div class="cart-item-name"><?= htmlspecialchars($row['crop_name']) ?></div>
+                    <div class="cart-item-meta"><?= number_format($qty, 2) ?> <?= htmlspecialchars($row['unit']) ?></div>
+                </div>
+                <div class="cart-item-subtotal">₱<?= number_format($subtotal, 2) ?></div>
+            </div>
+            <?php
+                    }
+                }
+                endif;
+            ?>
+
+            <?php if (!empty($_SESSION['cart'])): ?>
+            <div class="cart-total-bar">
+                <span class="cart-total-label">Total</span>
+                <span class="cart-total-amount">₱<?= number_format($total, 2) ?></span>
+            </div>
+            <div class="cart-actions">
+                <a class="btn" href="checkout.php">Proceed to Checkout</a>
+                <a class="btn" href="marketplace.php" style="background: var(--beige); color: var(--text); box-shadow: none;">Continue Shopping</a>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
 
 </body>
 </html>

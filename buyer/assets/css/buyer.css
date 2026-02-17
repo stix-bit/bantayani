@@ -484,6 +484,115 @@ body {
     color: #666;
 }
 
+/* Cart Page */
+.cart-card {
+    background: white;
+    border-radius: var(--radius-md);
+    padding: 28px 32px;
+    box-shadow: var(--shadow-sm);
+    max-width: 720px;
+    margin: 0 auto;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.cart-card .card-title {
+    font-size: 1.5rem;
+    color: var(--green-dark);
+    margin-bottom: 24px;
+    font-weight: 700;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--border);
+}
+
+.cart-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 16px 20px;
+    background: var(--beige-light);
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+    border-left: 4px solid var(--green);
+    transition: background 0.2s;
+}
+
+.cart-item-row:hover {
+    background: rgba(31, 138, 112, 0.06);
+}
+
+.cart-item-name {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 1.05rem;
+}
+
+.cart-item-meta {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-top: 4px;
+}
+
+.cart-item-subtotal {
+    font-weight: 700;
+    color: var(--green-dark);
+    font-size: 1.1rem;
+    white-space: nowrap;
+}
+
+.cart-total-bar {
+    margin-top: 24px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgba(31, 138, 112, 0.12), rgba(12, 92, 76, 0.08));
+    border-radius: var(--radius-sm);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    border: 2px solid var(--green-light);
+}
+
+.cart-total-label {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--green-dark);
+}
+
+.cart-total-amount {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--green-dark);
+}
+
+.cart-actions {
+    margin-top: 24px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.cart-actions .btn {
+    margin-top: 0;
+}
+
+.cart-empty-msg {
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--text-light);
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+.cart-empty-msg a {
+    color: var(--green);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.cart-empty-msg a:hover {
+    text-decoration: underline;
+}
+
 /* Back Link */
 .back-link {
     display: inline-block;

@@ -22,7 +22,6 @@ $stmt = $conn->prepare("
         o.order_id,
         o.order_date,
         o.order_status,
-        o.delivery_status,
         p.payment_status
     FROM orders o
     LEFT JOIN payment p ON o.order_id = p.order_id
@@ -33,16 +32,32 @@ $stmt->execute();
 $order_info = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
-// Get order items
-$stmt = $conn->prepare("
+// Check for optional columns
+$has_oi_quantity = false;
+$cols = $conn->query("SHOW COLUMNS FROM order_items LIKE 'quantity'");
+if ($cols && $cols->num_rows > 0) $has_oi_quantity = true;
+$has_pool_price = false;
+$cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
+if ($cols && $cols->num_rows > 0) $has_pool_price = true;
+
+// Get order items (inventory and cooperative pool)
+$sql = "
     SELECT 
-        c.crop_name,
-        ci.price
+        oi.order_item_id,
+        oi.inventory_id,
+        oi.pool_id,
+        " . ($has_oi_quantity ? "COALESCE(oi.quantity, 1) AS qty" : "1 AS qty") . ",
+        COALESCE(c1.crop_name, c2.crop_name) AS crop_name,
+        COALESCE(ci.price, p.unit_price) AS unit_price,
+        CASE WHEN oi.pool_id IS NOT NULL THEN 1 ELSE 0 END AS is_pool
     FROM order_items oi
-    JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-    JOIN crops c ON ci.crop_id = c.crop_id
+    LEFT JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+    LEFT JOIN crops c1 ON ci.crop_id = c1.crop_id
+    LEFT JOIN cooperative_pools p ON oi.pool_id = p.pool_id
+    LEFT JOIN crops c2 ON p.crop_id = c2.crop_id
     WHERE oi.order_id = ?
-");
+";
+$stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $order_id);
 $stmt->execute();
 $items = $stmt->get_result();
@@ -118,10 +133,6 @@ $stmt->close();
                     <span><?= date('F d, Y g:i A', strtotime($order_info['order_date'])); ?></span>
                 </div>
                 <div class="summary-row">
-                    <strong>Delivery Status:</strong>
-                    <span><?= $order_info['delivery_status'] ?? 'Pending'; ?></span>
-                </div>
-                <div class="summary-row">
                     <strong>Payment Status:</strong>
                     <span><?= $order_info['payment_status'] ?? 'Pending'; ?></span>
                 </div>
@@ -129,15 +140,25 @@ $stmt->close();
 
             <div class="items-header">Items in this Order</div>
 
-            <?php 
+            <?php
             $total = 0;
-            while ($row = $items->fetch_assoc()): 
-                $subtotal = $row['price'];
+            while ($row = $items->fetch_assoc()):
+                $qty = (float)($row['qty'] ?? 1);
+                $unit_price = (float)($row['unit_price'] ?? 0);
+                $subtotal = $unit_price * $qty;
                 $total += $subtotal;
             ?>
                 <div class="item">
                     <div class="item-row">
-                        <span class="item-name"><?= htmlspecialchars($row['crop_name']) ?></span>
+                        <span class="item-name">
+                            <?= htmlspecialchars($row['crop_name']) ?>
+                            <?php if (!empty($row['is_pool'])): ?>
+                                <span style="font-size:0.85rem; color:#666;">(Cooperative)</span>
+                            <?php endif; ?>
+                            <?php if ($qty != 1): ?>
+                                <span style="font-size:0.9rem;"> × <?= number_format($qty, 2) ?></span>
+                            <?php endif; ?>
+                        </span>
                         <span style="font-weight:600;">₱<?= number_format($subtotal, 2) ?></span>
                     </div>
                 </div>

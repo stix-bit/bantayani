@@ -114,7 +114,6 @@ $orders = $stmt->get_result();
                 </div>
                 <div class="order-details">
                     <strong>Date:</strong> <?= date('F d, Y', strtotime($row['order_date'])); ?><br>
-                    <strong>Delivery:</strong> <?= $row['delivery_status'] ?? 'Pending'; ?><br>
                     <strong>Payment:</strong> <?= $row['payment_status'] ?? 'Pending'; ?>
                 </div>
                 <div class="order-actions">

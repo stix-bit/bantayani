@@ -915,7 +915,7 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="action-title">Harvest Schedule</div>
                             <div class="action-desc">Plan your harvest dates</div>
                         </a>
-                        <a href="cooperative.php" class="action-card">
+                        <a href="./farmer/cooperative.php" class="action-card">
                             <div class="action-icon">🤝</div>
                             <div class="action-title">Join Cooperative</div>
                             <div class="action-desc">Pool crops with other farmers</div>

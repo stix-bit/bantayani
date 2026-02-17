@@ -8,46 +8,80 @@ $buyer_id = $_SESSION['user_id'];
 $cart = $_SESSION['cart'] ?? [];
 $order_confirmed = isset($_POST['confirm_checkout']) && $_POST['confirm_checkout'] === '1';
 
+// Check if order_items has quantity column (from cooperative_pools_migration.sql)
+$has_oi_quantity = false;
+$cols = $conn->query("SHOW COLUMNS FROM order_items LIKE 'quantity'");
+if ($cols && $cols->num_rows > 0) $has_oi_quantity = true;
+
 // Only process the order if user confirmed
 if ($order_confirmed) {
-    // Begin transaction
     $conn->begin_transaction();
     $ok = true;
 
-    // Insert order
     $stmtOrder = $conn->prepare("INSERT INTO orders (buyer_id) VALUES (?)");
     $stmtOrder->bind_param("i", $buyer_id);
     $stmtOrder->execute();
     $order_id = $conn->insert_id;
     $stmtOrder->close();
 
-    foreach ($cart as $inventory_id => $qty) {
-        $inventory_id = (int)$inventory_id;
-        $qty = (int)$qty;
-        if ($inventory_id <= 0 || $qty <= 0) continue;
+    foreach ($cart as $key => $qty) {
+        $qty = (float)$qty;
+        if ($qty <= 0) continue;
 
-        // Check available stock
+        // Cooperative pool item (key = p_POOL_ID)
+        if (is_string($key) && strpos($key, 'p_') === 0) {
+            $pool_id = (int)substr($key, 2);
+            $stmtChk = $conn->prepare("SELECT total_quantity FROM cooperative_pools WHERE pool_id = ? FOR UPDATE");
+            $stmtChk->bind_param("i", $pool_id);
+            $stmtChk->execute();
+            $stmtChk->bind_result($available);
+            $stmtChk->fetch();
+            $stmtChk->close();
+            if (!is_numeric($available) || (float)$available < $qty) {
+                $ok = false;
+                break;
+            }
+            if ($has_oi_quantity) {
+                $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, inventory_id, pool_id, quantity) VALUES (?, NULL, ?, ?)");
+                $stmtItem->bind_param("iid", $order_id, $pool_id, $qty);
+            } else {
+                $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, pool_id) VALUES (?, ?)");
+                $stmtItem->bind_param("ii", $order_id, $pool_id);
+            }
+            $stmtItem->execute();
+            $stmtItem->close();
+            $stmtUpd = $conn->prepare("UPDATE cooperative_pools SET total_quantity = total_quantity - ? WHERE pool_id = ?");
+            $stmtUpd->bind_param("di", $qty, $pool_id);
+            $stmtUpd->execute();
+            $stmtUpd->close();
+            continue;
+        }
+
+        // Individual inventory item
+        $inventory_id = (int)$key;
+        if ($inventory_id <= 0) continue;
+
         $stmtChk = $conn->prepare("SELECT quantity FROM crops_inventory WHERE inventory_id = ? FOR UPDATE");
         $stmtChk->bind_param("i", $inventory_id);
         $stmtChk->execute();
         $stmtChk->bind_result($available);
         $stmtChk->fetch();
         $stmtChk->close();
-
         if (!is_numeric($available) || $available < $qty) {
             $ok = false;
             break;
         }
-
-        // Insert into order_items (order_id, inventory_id)
-        $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, inventory_id) VALUES (?, ?)");
-        $stmtItem->bind_param("ii", $order_id, $inventory_id);
+        if ($has_oi_quantity) {
+            $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, inventory_id, pool_id, quantity) VALUES (?, ?, NULL, ?)");
+            $stmtItem->bind_param("iid", $order_id, $inventory_id, $qty);
+        } else {
+            $stmtItem = $conn->prepare("INSERT INTO order_items (order_id, inventory_id) VALUES (?, ?)");
+            $stmtItem->bind_param("ii", $order_id, $inventory_id);
+        }
         $stmtItem->execute();
         $stmtItem->close();
-
-        // Deduct stock
         $stmtUpd = $conn->prepare("UPDATE crops_inventory SET quantity = quantity - ? WHERE inventory_id = ?");
-        $stmtUpd->bind_param("ii", $qty, $inventory_id);
+        $stmtUpd->bind_param("di", $qty, $inventory_id);
         $stmtUpd->execute();
         $stmtUpd->close();
     }
@@ -57,7 +91,6 @@ if ($order_confirmed) {
         $stmtPay->bind_param("i", $order_id);
         $stmtPay->execute();
         $stmtPay->close();
-
         $conn->commit();
         unset($_SESSION['cart']);
         $show_success = true;
@@ -138,30 +171,59 @@ $stmt->close();
         <p>Please review your order before payment:</p>
         
         <div style="margin: 20px 0; border-top: 1px solid #ddd; padding-top: 15px;">
-            <?php 
+            <?php
             $total = 0;
-            foreach ($cart as $id => $qty) {
-                $stmt = $conn->prepare("SELECT ci.price, c.crop_name
-                    FROM crops_inventory ci
-                    JOIN crops c ON ci.crop_id = c.crop_id
-                    WHERE ci.inventory_id = ?");
-                $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $row = $stmt->get_result()->fetch_assoc();
-                $stmt->close();
+            $has_pool_price = false;
+            $cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
+            if ($cols && $cols->num_rows > 0) $has_pool_price = true;
 
-                $subtotal = $row['price'] * $qty;
-                $total += $subtotal;
+            foreach ($cart as $id => $qty) {
+                $qty = (float)$qty;
+                if ($qty <= 0) continue;
+
+                if (is_string($id) && strpos($id, 'p_') === 0) {
+                    $pool_id = (int)substr($id, 2);
+                    $stmt = $conn->prepare("SELECT c.crop_name, c.unit" . ($has_pool_price ? ", p.unit_price" : "") . " FROM cooperative_pools p JOIN crops c ON p.crop_id = c.crop_id WHERE p.pool_id = ?");
+                    $stmt->bind_param("i", $pool_id);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if (!$row) continue;
+                    $price = ($has_pool_price && isset($row['unit_price']) && $row['unit_price'] != null) ? (float)$row['unit_price'] : 0;
+                    $subtotal = $price * $qty;
+                    $total += $subtotal;
             ?>
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
                 <div>
-                    <strong><?= htmlspecialchars($row['crop_name']) ?></strong><br>
-                    <small>Qty: <?= $qty ?> × ₱<?= number_format($row['price'], 2) ?></small>
+                    <strong><?= htmlspecialchars($row['crop_name']) ?> <span style="font-size:0.85rem; color:#666;">(Cooperative)</span></strong><br>
+                    <small>Qty: <?= number_format($qty, 2) ?> <?= htmlspecialchars($row['unit']) ?> × ₱<?= number_format($price, 2) ?></small>
                 </div>
                 <div style="text-align: right;">
                     <strong>₱<?= number_format($subtotal, 2) ?></strong>
                 </div>
             </div>
+            <?php
+                } else {
+                    $inv_id = (int)$id;
+                    $stmt = $conn->prepare("SELECT ci.price, c.crop_name, c.unit FROM crops_inventory ci JOIN crops c ON ci.crop_id = c.crop_id WHERE ci.inventory_id = ?");
+                    $stmt->bind_param("i", $inv_id);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if (!$row) continue;
+                    $subtotal = (float)$row['price'] * $qty;
+                    $total += $subtotal;
+            ?>
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
+                <div>
+                    <strong><?= htmlspecialchars($row['crop_name']) ?></strong><br>
+                    <small>Qty: <?= number_format($qty, 2) ?> × ₱<?= number_format($row['price'], 2) ?></small>
+                </div>
+                <div style="text-align: right;">
+                    <strong>₱<?= number_format($subtotal, 2) ?></strong>
+                </div>
+            </div>
+            <?php } ?>
             <?php } ?>
         </div>
 

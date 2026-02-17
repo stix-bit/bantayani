@@ -16,7 +16,7 @@ $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
 
-// Get products
+// Get products (individual farmer inventory)
 $sql = "SELECT ci.inventory_id, c.crop_name, c.unit, ci.price, ci.quantity, f.farm_name
         FROM crops_inventory ci
         JOIN crops c ON ci.crop_id = c.crop_id
@@ -24,7 +24,20 @@ $sql = "SELECT ci.inventory_id, c.crop_name, c.unit, ci.price, ci.quantity, f.fa
         WHERE ci.quantity > 0";
 $result = $conn->query($sql);
 
- 
+// Check if cooperative_pools has unit_price (from migration)
+$has_pool_price = false;
+$cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
+if ($cols && $cols->num_rows > 0) $has_pool_price = true;
+
+// Get cooperative pools (large volume – any buyer can see and order)
+$pool_sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, c.unit" . ($has_pool_price ? ", p.unit_price" : "") . "
+             FROM cooperative_pools p
+             JOIN crops c ON p.crop_id = c.crop_id
+             WHERE (p.total_quantity IS NULL OR p.total_quantity > 0)
+             ORDER BY c.crop_name";
+$pools_result = $conn->query($pool_sql);
+$pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -78,11 +91,30 @@ $result = $conn->query($sql);
     <div class="main-container">
         <div class="page-header">
             <h1>🌾 Marketplace</h1>
-            <p>Browse fresh produce from local farmers</p>
+            <p>Browse fresh produce from local farmers and cooperative pools</p>
         </div>
-        
-        <!-- Filter and search section will be added by JavaScript -->
-        
+
+        <?php if (!empty($pools)): ?>
+        <section class="marketplace-section" style="margin-bottom: 32px;">
+            <h2 style="font-size: 1.25rem; margin-bottom: 12px; color: #0c5c4c;">🤝 Cooperative Pools (Large Volume)</h2>
+            <p style="color: #4c5662; margin-bottom: 16px;">Order in bulk from pooled produce—fulfills large orders that individual farmers cannot supply alone.</p>
+            <div class="marketplace" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;">
+                <?php foreach ($pools as $p): ?>
+                <div class="card" style="border-left: 4px solid #1f8a70;">
+                    <b><?= htmlspecialchars($p['crop_name']) ?></b>
+                    <p style="margin: 6px 0;">Cooperative pool</p>
+                    <?php if ($has_pool_price && isset($p['unit_price']) && $p['unit_price'] != null): ?>
+                    <p>Price: ₱<?= number_format((float)$p['unit_price'], 2) ?> / <?= htmlspecialchars($p['unit']) ?></p>
+                    <?php endif; ?>
+                    <p>Available: <?= number_format((float)($p['total_quantity'] ?? 0), 2) ?> <?= htmlspecialchars($p['unit']) ?></p>
+                    <a class="btn" href="product_pool.php?pool_id=<?= (int)$p['pool_id'] ?>">View &amp; Order</a>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
+        <?php endif; ?>
+
+        <h2 style="font-size: 1.25rem; margin-bottom: 12px; color: #0c5c4c;">From individual farmers</h2>
         <div class="marketplace">
             <?php if ($result->num_rows > 0) { ?>
                 <?php while ($row = $result->fetch_assoc()) { ?>
@@ -96,7 +128,7 @@ $result = $conn->query($sql);
                 <?php } ?>
             <?php } else { ?>
                 <div class="no-results">
-                    😔 No products available at the moment. Check back soon!
+                    No individual listings at the moment. Check cooperative pools above or check back soon!
                 </div>
             <?php } ?>
         </div>
