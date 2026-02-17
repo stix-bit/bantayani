@@ -1,357 +1,426 @@
--- -----------------------------------------------------
 -- MySQL Workbench Forward Engineering
--- -----------------------------------------------------
 
 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0;
 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0;
 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
 
 -- -----------------------------------------------------
+-- Schema mydb
+-- -----------------------------------------------------
+-- -----------------------------------------------------
 -- Schema bantayani_db
 -- -----------------------------------------------------
-CREATE SCHEMA IF NOT EXISTS `bantayani_db` DEFAULT CHARACTER SET utf8;
-USE `bantayani_db`;
 
 -- -----------------------------------------------------
--- Table `users`
+-- Schema bantayani_db
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `users` (
-  `user_id` INT NOT NULL AUTO_INCREMENT,
+CREATE SCHEMA IF NOT EXISTS `bantayani_db` DEFAULT CHARACTER SET utf8 ;
+USE `bantayani_db` ;
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`users`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`users` (
+  `user_id` INT(11) NOT NULL AUTO_INCREMENT,
   `role` ENUM('Farmer', 'Buyer', 'Admin') NOT NULL,
   `first_name` VARCHAR(45) NOT NULL,
   `middle_name` VARCHAR(45) NOT NULL,
   `last_name` VARCHAR(45) NOT NULL,
   `email` VARCHAR(45) NOT NULL,
   `password` VARCHAR(255) NOT NULL,
-  `contact_number` VARCHAR(45) NULL,
+  `contact_number` VARCHAR(45) NULL DEFAULT NULL,
   `address` VARCHAR(45) NOT NULL,
-  `is_verified` TINYINT NULL DEFAULT 0,
-  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  `img_path` VARCHAR(255) NULL,
+  `is_verified` TINYINT(4) NULL DEFAULT 0,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
+  `img_path` VARCHAR(255) NULL DEFAULT NULL,
   PRIMARY KEY (`user_id`),
-  UNIQUE INDEX `email_UNIQUE` (`email` ASC)
-) ENGINE = InnoDB;
+  UNIQUE INDEX `email_UNIQUE` (`email` ASC) )
+ENGINE = InnoDB
+AUTO_INCREMENT = 5
+DEFAULT CHARACTER SET = utf8;
+
 
 -- -----------------------------------------------------
--- Table `buyer_profiles`
+-- Table `bantayani_db`.`buyer_profiles`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `buyer_profiles` (
-  `buyer_id` INT NOT NULL,
-  `preferred_payment_method` ENUM('Cash','Online') DEFAULT 'Cash',
-  `verified` TINYINT(1) DEFAULT 0,
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`buyer_profiles` (
+  `buyer_id` INT(11) NOT NULL,
+  `preferred_payment_method` ENUM('Cash', 'Online') NULL DEFAULT 'Cash',
+  `verified` TINYINT(1) NULL DEFAULT 0,
   PRIMARY KEY (`buyer_id`),
   CONSTRAINT `fk_buyer_profiles_users1`
     FOREIGN KEY (`buyer_id`)
-    REFERENCES `users` (`user_id`)
+    REFERENCES `bantayani_db`.`users` (`user_id`)
     ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE = InnoDB;
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
 
 -- -----------------------------------------------------
--- Table `companies` (independent company records)
+-- Table `bantayani_db`.`companies`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `companies` (
-  `company_id` INT NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`companies` (
+  `company_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `buyer_id` INT(11) NOT NULL,
   `company_name` VARCHAR(100) NOT NULL,
-  `company_address` VARCHAR(255) NULL,
-  `contact_person` VARCHAR(100) NULL,
-  `tax_id` VARCHAR(50) NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `company_address` VARCHAR(255) NULL DEFAULT NULL,
+  `contact_person` VARCHAR(100) NULL DEFAULT NULL,
+  `tax_id` VARCHAR(50) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
   PRIMARY KEY (`company_id`),
-  UNIQUE INDEX `company_name_UNIQUE` (`company_name` ASC),
-  UNIQUE INDEX `tax_id_UNIQUE` (`tax_id` ASC)
-) ENGINE=InnoDB;
+  INDEX `fk_companies_buyer_idx` (`buyer_id` ASC) ,
+  CONSTRAINT `fk_companies_buyer`
+    FOREIGN KEY (`buyer_id`)
+    REFERENCES `bantayani_db`.`buyer_profiles` (`buyer_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 2
+DEFAULT CHARACTER SET = utf8;
+
 
 -- -----------------------------------------------------
--- Table `company_buyers` (junction table for many-to-many relationship)
+-- Table `bantayani_db`.`company_buyers`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `company_buyers` (
-  `company_id` INT NOT NULL,
-  `buyer_id` INT NOT NULL,
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`company_buyers` (
+  `company_id` INT(11) NOT NULL,
+  `buyer_id` INT(11) NOT NULL,
   `role_in_company` VARCHAR(50) NULL DEFAULT 'Employee',
-  `joined_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `joined_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
   PRIMARY KEY (`company_id`, `buyer_id`),
-  INDEX `fk_company_buyers_companies_idx` (`company_id` ASC),
-  INDEX `fk_company_buyers_buyer_profiles_idx` (`buyer_id` ASC),
-  CONSTRAINT `fk_company_buyers_companies`
-    FOREIGN KEY (`company_id`)
-    REFERENCES `companies` (`company_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
+  INDEX `fk_company_buyers_companies_idx` (`company_id` ASC) ,
+  INDEX `fk_company_buyers_buyer_profiles_idx` (`buyer_id` ASC) ,
   CONSTRAINT `fk_company_buyers_buyer_profiles`
     FOREIGN KEY (`buyer_id`)
-    REFERENCES `buyer_profiles` (`buyer_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `farmer_profiles`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `farmer_profiles` (
-  `farmer_id` INT NOT NULL,
-  `farm_name` VARCHAR(45) NOT NULL,
-  `farm_location` VARCHAR(255) NOT NULL,
-  `farm_img_path` VARCHAR(255) NULL,
-  `verified_by` INT NULL,
-  `verified_at` TIMESTAMP NULL,
-  INDEX `fk_farmer_profiles_users_idx` (`farmer_id` ASC),
-  PRIMARY KEY (`farmer_id`),
-  CONSTRAINT `fk_farmer_profiles_users`
-    FOREIGN KEY (`farmer_id`)
-    REFERENCES `users` (`user_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `crops`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `crops` (
-  `crop_id` INT NOT NULL AUTO_INCREMENT,
-  `crop_name` VARCHAR(45) NOT NULL,
-  `unit` ENUM('kg', 'g', 'pieces') NOT NULL,
-  PRIMARY KEY (`crop_id`)
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `crops_inventory`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `crops_inventory` (
-  `inventory_id` INT NOT NULL AUTO_INCREMENT,
-  `farmer_id` INT NOT NULL,
-  `crop_id` INT NOT NULL,
-  `quantity` DECIMAL(10,2) NULL,
-  `harvest_date` DATE NULL,
-  `harvest_status` ENUM('Scheduled','Confirmed','Cancelled') NOT NULL DEFAULT 'Scheduled',
-  `harvest_confirmed_at` DATETIME NULL,
-  `harvest_cancelled_at` DATETIME NULL,
-  `harvest_notification_seen_at` DATETIME NULL,
-  `price` DECIMAL(10,2) NULL,
-  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`inventory_id`),
-  INDEX `fk_crops_inventory_crops1_idx` (`crop_id` ASC),
-  INDEX `idx_crops_inventory_farmer_harvestdate_status` (`farmer_id` ASC, `harvest_date` ASC, `harvest_status` ASC),
-  CONSTRAINT `fk_crops_inventory_farmer_profiles1`
-    FOREIGN KEY (`farmer_id`)
-    REFERENCES `farmer_profiles` (`farmer_id`)
+    REFERENCES `bantayani_db`.`buyer_profiles` (`buyer_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
-  CONSTRAINT `fk_crops_inventory_crops1`
-    FOREIGN KEY (`crop_id`)
-    REFERENCES `crops` (`crop_id`)
+  CONSTRAINT `fk_company_buyers_companies`
+    FOREIGN KEY (`company_id`)
+    REFERENCES `bantayani_db`.`companies` (`company_id`)
     ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
 
 -- -----------------------------------------------------
--- Table `cooperative_pools`
+-- Table `bantayani_db`.`crops`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `cooperative_pools` (
-  `pool_id` INT NOT NULL AUTO_INCREMENT,
-  `crop_id` INT NOT NULL,
-  `total_quantity` DECIMAL(10,2) NULL,
-  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`crops` (
+  `crop_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `crop_name` VARCHAR(45) NOT NULL,
+  `unit` ENUM('kg', 'g', 'pieces') NOT NULL,
+  PRIMARY KEY (`crop_id`))
+ENGINE = InnoDB
+AUTO_INCREMENT = 2
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`cooperative_pools`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`cooperative_pools` (
+  `pool_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `crop_id` INT(11) NOT NULL,
+  `total_quantity` DECIMAL(10,2) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
   PRIMARY KEY (`pool_id`),
-  INDEX `fk_cooperative_pools_crops1_idx` (`crop_id` ASC),
+  INDEX `fk_cooperative_pools_crops1_idx` (`crop_id` ASC) ,
   CONSTRAINT `fk_cooperative_pools_crops1`
     FOREIGN KEY (`crop_id`)
-    REFERENCES `crops` (`crop_id`)
+    REFERENCES `bantayani_db`.`crops` (`crop_id`)
     ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
 
 -- -----------------------------------------------------
--- Table `cooperative_members`
+-- Table `bantayani_db`.`farmer_profiles`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `cooperative_members` (
-  `pool_id` INT NOT NULL,
-  `farmer_id` INT NOT NULL,
-  `quantity_contributed` DECIMAL(10,2) NULL,
-  INDEX `fk_cooperative_members_cooperative_pools1_idx` (`pool_id` ASC),
-  INDEX `fk_cooperative_members_farmer_profiles1_idx` (`farmer_id` ASC),
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`farmer_profiles` (
+  `farmer_id` INT(11) NOT NULL,
+  `farm_name` VARCHAR(45) NOT NULL,
+  `farm_location` VARCHAR(255) NOT NULL,
+  `farm_img_path` VARCHAR(255) NULL DEFAULT NULL,
+  `verified_by` INT(11) NULL DEFAULT NULL,
+  `verified_at` TIMESTAMP NULL DEFAULT NULL,
+  `region` VARCHAR(100) NULL DEFAULT NULL,
+  PRIMARY KEY (`farmer_id`),
+  INDEX `fk_farmer_profiles_users_idx` (`farmer_id` ASC) ,
+  CONSTRAINT `fk_farmer_profiles_users`
+    FOREIGN KEY (`farmer_id`)
+    REFERENCES `bantayani_db`.`users` (`user_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`cooperative_members`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`cooperative_members` (
+  `pool_id` INT(11) NOT NULL,
+  `farmer_id` INT(11) NOT NULL,
+  `quantity_contributed` DECIMAL(10,2) NULL DEFAULT NULL,
+  INDEX `fk_cooperative_members_cooperative_pools1_idx` (`pool_id` ASC) ,
+  INDEX `fk_cooperative_members_farmer_profiles1_idx` (`farmer_id` ASC) ,
   CONSTRAINT `fk_cooperative_members_cooperative_pools1`
     FOREIGN KEY (`pool_id`)
-    REFERENCES `cooperative_pools` (`pool_id`)
+    REFERENCES `bantayani_db`.`cooperative_pools` (`pool_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
   CONSTRAINT `fk_cooperative_members_farmer_profiles1`
     FOREIGN KEY (`farmer_id`)
-    REFERENCES `farmer_profiles` (`farmer_id`)
+    REFERENCES `bantayani_db`.`farmer_profiles` (`farmer_id`)
     ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
 
 -- -----------------------------------------------------
--- Table `orders`
+-- Table `bantayani_db`.`crops_inventory`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `orders` (
-  `order_id` INT NOT NULL AUTO_INCREMENT,
-  `buyer_id` INT NOT NULL,
-  `order_date` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  `order_status` ENUM('Pending', 'Cancelled', 'Confirmed', 'Delivered', 'Shipped') NULL DEFAULT 'Pending',
-  PRIMARY KEY (`order_id`),
-  INDEX `fk_orders_buyer_profiles1_idx` (`buyer_id` ASC),
-  CONSTRAINT `fk_orders_buyer_profiles1`
-    FOREIGN KEY (`buyer_id`)
-    REFERENCES `buyer_profiles` (`buyer_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `order_items`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `order_items` (
-  `order_item_id` INT NOT NULL AUTO_INCREMENT,
-  `order_id` INT NOT NULL,
-  `inventory_id` INT NULL,
-  `pool_id` INT NULL,
-  PRIMARY KEY (`order_item_id`),
-  INDEX `fk_order_items_orders1_idx` (`order_id` ASC),
-  INDEX `fk_order_items_crops_inventory1_idx` (`inventory_id` ASC),
-  INDEX `fk_order_items_cooperative_pools1_idx` (`pool_id` ASC),
-  CONSTRAINT `fk_order_items_orders1`
-    FOREIGN KEY (`order_id`)
-    REFERENCES `orders` (`order_id`)
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`crops_inventory` (
+  `inventory_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `farmer_id` INT(11) NOT NULL,
+  `crop_id` INT(11) NOT NULL,
+  `quantity` DECIMAL(10,2) NULL DEFAULT NULL,
+  `harvest_date` DATE NULL DEFAULT NULL,
+  `harvest_status` ENUM('Scheduled', 'Confirmed', 'Cancelled') NOT NULL DEFAULT 'Scheduled',
+  `harvest_confirmed_at` DATETIME NULL DEFAULT NULL,
+  `harvest_cancelled_at` DATETIME NULL DEFAULT NULL,
+  `harvest_notification_seen_at` DATETIME NULL DEFAULT NULL,
+  `price` DECIMAL(10,2) NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
+  PRIMARY KEY (`inventory_id`),
+  INDEX `fk_crops_inventory_crops1_idx` (`crop_id` ASC) ,
+  INDEX `fk_crops_inventory_farmer_profiles1` (`farmer_id` ASC) ,
+  CONSTRAINT `fk_crops_inventory_crops1`
+    FOREIGN KEY (`crop_id`)
+    REFERENCES `bantayani_db`.`crops` (`crop_id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE,
-  CONSTRAINT `fk_order_items_crops_inventory1`
-    FOREIGN KEY (`inventory_id`)
-    REFERENCES `crops_inventory` (`inventory_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
-  CONSTRAINT `fk_order_items_cooperative_pools1`
-    FOREIGN KEY (`pool_id`)
-    REFERENCES `cooperative_pools` (`pool_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `deliveries`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `deliveries` (
-  `delivery_id` INT NOT NULL AUTO_INCREMENT,
-  `order_id` INT NOT NULL,
-  `delivery_status` ENUM('Pending', 'Delivering', 'Delivered') NULL DEFAULT 'Pending',
-  `delivery_date` DATE NULL,
-  PRIMARY KEY (`delivery_id`),
-  INDEX `fk_deliveries_orders1_idx` (`order_id` ASC),
-  CONSTRAINT `fk_deliveries_orders1`
-    FOREIGN KEY (`order_id`)
-    REFERENCES `orders` (`order_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `notifications`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `notifications` (
-  `notification_id` INT NOT NULL AUTO_INCREMENT,
-  `user_id` INT NULL,
-  `message` TEXT NULL,
-  `notification_type` ENUM('Weather', 'Order', 'System') NULL,
-  `is_read` TINYINT NULL DEFAULT 0,
-  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`notification_id`),
-  INDEX `fk_notifications_users1_idx` (`user_id` ASC),
-  CONSTRAINT `fk_notifications_users1`
-    FOREIGN KEY (`user_id`)
-    REFERENCES `users` (`user_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `ratings`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `ratings` (
-  `rating_id` INT NOT NULL AUTO_INCREMENT,
-  `rating` INT NULL,
-  `comment` TEXT NULL,
-  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  `farmer_id` INT NOT NULL,
-  `buyer_id` INT NOT NULL,
-  PRIMARY KEY (`rating_id`),
-  INDEX `fk_ratings_farmer_profiles1_idx` (`farmer_id` ASC),
-  INDEX `fk_ratings_buyer_profiles1_idx` (`buyer_id` ASC),
-  CONSTRAINT `fk_ratings_farmer_profiles1`
+  CONSTRAINT `fk_crops_inventory_farmer_profiles1`
     FOREIGN KEY (`farmer_id`)
-    REFERENCES `farmer_profiles` (`farmer_id`)
+    REFERENCES `bantayani_db`.`farmer_profiles` (`farmer_id`)
     ON DELETE CASCADE
-    ON UPDATE CASCADE,
-  CONSTRAINT `fk_ratings_buyer_profiles1`
-    FOREIGN KEY (`buyer_id`)
-    REFERENCES `buyer_profiles` (`buyer_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 2
+DEFAULT CHARACTER SET = utf8;
+
 
 -- -----------------------------------------------------
--- Table `reports`
+-- Table `bantayani_db`.`farmer_verification`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `reports` (
-  `report_id` INT NOT NULL AUTO_INCREMENT,
-  `report_type` ENUM('Monthly Sales', 'Farmer Participation') NULL,
-  `user_id` INT NOT NULL,
-  `generated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`report_id`),
-  INDEX `fk_reports_users1_idx` (`user_id` ASC),
-  CONSTRAINT `fk_reports_users1`
-    FOREIGN KEY (`user_id`)
-    REFERENCES `users` (`user_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `payment`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `payment` (
-  `payment_id` INT NOT NULL AUTO_INCREMENT,
-  `order_id` INT NOT NULL,
-  `payment_method` ENUM('Cash', 'Online') NULL,
-  `payment_status` ENUM('Pending', 'Paid', 'Cancelled') NULL DEFAULT 'Pending',
-  `payment_date` TIMESTAMP NULL,
-  PRIMARY KEY (`payment_id`),
-  INDEX `fk_deliveries_orders1_idx` (`order_id` ASC),
-  CONSTRAINT `fk_deliveries_orders10`
-    FOREIGN KEY (`order_id`)
-    REFERENCES `orders` (`order_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- -----------------------------------------------------
--- Table `farmer_verification`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `farmer_verification` (
-  `verification_id` INT NOT NULL AUTO_INCREMENT,
-  `farmer_id` INT NOT NULL,
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`farmer_verification` (
+  `verification_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `farmer_id` INT(11) NOT NULL,
   `certificate_type` ENUM('Business Permit', 'Agricultural License', 'Tax Identification', 'Others') NOT NULL,
   `certificate_name` VARCHAR(255) NOT NULL,
   `certificate_path` VARCHAR(255) NOT NULL,
   `status` ENUM('Pending', 'Approved', 'Rejected') NOT NULL DEFAULT 'Pending',
-  `submitted_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  `reviewed_at` TIMESTAMP NULL,
-  `reviewed_by` INT NULL,
-  `admin_notes` TEXT NULL,
+  `submitted_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
+  `reviewed_at` TIMESTAMP NULL DEFAULT NULL,
+  `reviewed_by` INT(11) NULL DEFAULT NULL,
+  `admin_notes` TEXT NULL DEFAULT NULL,
   PRIMARY KEY (`verification_id`),
   INDEX `fk_farmer_verification_users1_idx` (`farmer_id` ASC) ,
   INDEX `fk_farmer_verification_admin_idx` (`reviewed_by` ASC) ,
-  CONSTRAINT `fk_farmer_verification_users1`
-    FOREIGN KEY (`farmer_id`)
-    REFERENCES `users` (`user_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE,
   CONSTRAINT `fk_farmer_verification_admin`
     FOREIGN KEY (`reviewed_by`)
-    REFERENCES `users` (`user_id`)
+    REFERENCES `bantayani_db`.`users` (`user_id`)
     ON DELETE SET NULL
-    ON UPDATE CASCADE
-) ENGINE = InnoDB;
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_farmer_verification_users1`
+    FOREIGN KEY (`farmer_id`)
+    REFERENCES `bantayani_db`.`users` (`user_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 2
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`notifications`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`notifications` (
+  `notification_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `user_id` INT(11) NULL DEFAULT NULL,
+  `message` TEXT NULL DEFAULT NULL,
+  `notification_type` ENUM('Weather', 'Order', 'System') NULL DEFAULT NULL,
+  `is_read` TINYINT(4) NULL DEFAULT 0,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
+  PRIMARY KEY (`notification_id`),
+  INDEX `fk_notifications_users1_idx` (`user_id` ASC) ,
+  CONSTRAINT `fk_notifications_users1`
+    FOREIGN KEY (`user_id`)
+    REFERENCES `bantayani_db`.`users` (`user_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`orders`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`orders` (
+  `order_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `buyer_id` INT(11) NOT NULL,
+  `order_date` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
+  `order_status` ENUM('Pending', 'Cancelled', 'Confirmed', 'Delivered', 'Shipped') NULL DEFAULT 'Pending',
+  PRIMARY KEY (`order_id`),
+  INDEX `fk_orders_buyer_profiles1_idx` (`buyer_id` ASC) ,
+  CONSTRAINT `fk_orders_buyer_profiles1`
+    FOREIGN KEY (`buyer_id`)
+    REFERENCES `bantayani_db`.`buyer_profiles` (`buyer_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 14
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`order_items`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`order_items` (
+  `order_item_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `order_id` INT(11) NOT NULL,
+  `inventory_id` INT(11) NULL DEFAULT NULL,
+  `pool_id` INT(11) NULL DEFAULT NULL,
+  PRIMARY KEY (`order_item_id`),
+  INDEX `fk_order_items_orders1_idx` (`order_id` ASC) ,
+  INDEX `fk_order_items_crops_inventory1_idx` (`inventory_id` ASC) ,
+  INDEX `fk_order_items_cooperative_pools1_idx` (`pool_id` ASC) ,
+  CONSTRAINT `fk_order_items_cooperative_pools1`
+    FOREIGN KEY (`pool_id`)
+    REFERENCES `bantayani_db`.`cooperative_pools` (`pool_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_order_items_crops_inventory1`
+    FOREIGN KEY (`inventory_id`)
+    REFERENCES `bantayani_db`.`crops_inventory` (`inventory_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_order_items_orders1`
+    FOREIGN KEY (`order_id`)
+    REFERENCES `bantayani_db`.`orders` (`order_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 10
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`payment`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`payment` (
+  `payment_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `order_id` INT(11) NOT NULL,
+  `payment_method` ENUM('Cash', 'Online') NULL DEFAULT NULL,
+  `payment_status` ENUM('Pending', 'Paid', 'Cancelled') NULL DEFAULT 'Pending',
+  `payment_date` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`payment_id`),
+  INDEX `fk_deliveries_orders1_idx` (`order_id` ASC) ,
+  CONSTRAINT `fk_deliveries_orders10`
+    FOREIGN KEY (`order_id`)
+    REFERENCES `bantayani_db`.`orders` (`order_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+AUTO_INCREMENT = 14
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`ratings`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`ratings` (
+  `rating_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `rating` INT(11) NULL DEFAULT NULL,
+  `comment` TEXT NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
+  `farmer_id` INT(11) NOT NULL,
+  `buyer_id` INT(11) NOT NULL,
+  PRIMARY KEY (`rating_id`),
+  INDEX `fk_ratings_farmer_profiles1_idx` (`farmer_id` ASC) ,
+  INDEX `fk_ratings_buyer_profiles1_idx` (`buyer_id` ASC) ,
+  CONSTRAINT `fk_ratings_buyer_profiles1`
+    FOREIGN KEY (`buyer_id`)
+    REFERENCES `bantayani_db`.`buyer_profiles` (`buyer_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+  CONSTRAINT `fk_ratings_farmer_profiles1`
+    FOREIGN KEY (`farmer_id`)
+    REFERENCES `bantayani_db`.`farmer_profiles` (`farmer_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`reports`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`reports` (
+  `report_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `report_type` ENUM('Monthly Sales', 'Farmer Participation') NULL DEFAULT NULL,
+  `user_id` INT(11) NOT NULL,
+  `generated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
+  PRIMARY KEY (`report_id`),
+  INDEX `fk_reports_users1_idx` (`user_id` ASC) ,
+  CONSTRAINT `fk_reports_users1`
+    FOREIGN KEY (`user_id`)
+    REFERENCES `bantayani_db`.`users` (`user_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`weather_alerts`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`weather_alerts` (
+  `alert_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(255) NOT NULL,
+  `message` TEXT NOT NULL,
+  `severity` ENUM('Low', 'Medium', 'High') NULL DEFAULT 'Low',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+  PRIMARY KEY (`alert_id`))
+ENGINE = InnoDB
+AUTO_INCREMENT = 7
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`weather_data`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`weather_data` (
+  `weather_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `latitude` DECIMAL(10,8) NOT NULL,
+  `longitude` DECIMAL(11,8) NOT NULL,
+  `temperature` DECIMAL(5,2) NULL DEFAULT NULL,
+  `humidity` INT(11) NULL DEFAULT NULL,
+  `wind_speed` DECIMAL(5,2) NULL DEFAULT NULL,
+  `data_json` LONGTEXT NULL DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+  PRIMARY KEY (`weather_id`),
+  INDEX `idx_location` (`latitude` ASC, `longitude` ASC) ,
+  INDEX `idx_date` (`created_at` ASC) )
+ENGINE = InnoDB
+AUTO_INCREMENT = 22
+DEFAULT CHARACTER SET = utf8;
+
 
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
