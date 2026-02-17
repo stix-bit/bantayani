@@ -16,33 +16,7 @@ $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
 
-// Handle delivery status update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_delivery'])) {
-    $order_id = (int)$_POST['order_id'];
-    $delivery_status = $_POST['delivery_status'];
-    
-    // Verify this order belongs to this farmer
-    $verify_stmt = $conn->prepare("
-        SELECT d.delivery_id FROM deliveries d
-        JOIN order_items oi ON d.order_id = oi.order_id
-        JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-        WHERE d.order_id = ? AND ci.farmer_id = ?
-    ");
-    $verify_stmt->bind_param("ii", $order_id, $farmer_id);
-    $verify_stmt->execute();
-    $verify_result = $verify_stmt->get_result();
-    
-    if ($verify_result->num_rows > 0) {
-        $update_stmt = $conn->prepare("UPDATE deliveries SET delivery_status = ? WHERE order_id = ?");
-        $update_stmt->bind_param("si", $delivery_status, $order_id);
-        $update_stmt->execute();
-        $update_stmt->close();
-        $_SESSION['message'] = 'Delivery status updated successfully!';
-    }
-    $verify_stmt->close();
-}
-
-// Handle order status update (Farmer can mark order progress)
+// Handle order status update (tracks delivery progress)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_order_status'])) {
     $order_id = (int)($_POST['order_id'] ?? 0);
     $order_status = $_POST['order_status'] ?? '';
@@ -73,17 +47,14 @@ SELECT DISTINCT
     o.order_id,
     o.order_date,
     o.order_status,
-    d.delivery_id,
-    d.delivery_status,
     GROUP_CONCAT(c.crop_name SEPARATOR ', ') as crops,
     SUM(ci.price) as total_price
 FROM order_items oi
 JOIN orders o ON oi.order_id = o.order_id
 JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
 JOIN crops c ON ci.crop_id = c.crop_id
-LEFT JOIN deliveries d ON o.order_id = d.order_id
 WHERE ci.farmer_id = ?
-GROUP BY o.order_id, o.order_date, o.order_status, d.delivery_id, d.delivery_status
+GROUP BY o.order_id, o.order_date, o.order_status
 ORDER BY o.order_date DESC
 ";
 
@@ -168,11 +139,10 @@ $orders = $stmt->get_result();
                 <div class="order-details">
                     <strong>Date:</strong> <?= date('F d, Y', strtotime($row['order_date'])); ?><br>
                     <strong>Crops:</strong> <?= htmlspecialchars($row['crops']); ?><br>
-                    <strong>Total Price:</strong> ₱<?= number_format($row['total_price'], 2); ?><br>
-                    <strong>Current Delivery Status:</strong> <?= $row['order_status'] ?? 'Not Set'; ?>
+                    <strong>Total Price:</strong> ₱<?= number_format($row['total_price'], 2); ?>
                 </div>
 
-                <!-- Order status update (farmer-only) -->
+                <!-- Order status update form -->
                 <form method="POST" style="margin-top:8px;">
                     <input type="hidden" name="order_id" value="<?= $row['order_id'] ?>">
                     <input type="hidden" name="update_order_status" value="1">
@@ -184,7 +154,7 @@ $orders = $stmt->get_result();
                             <option value="Delivered" <?= ($row['order_status'] === 'Delivered' ? 'selected' : '') ?>>Delivered</option>
                             <option value="Cancelled" <?= ($row['order_status'] === 'Cancelled' ? 'selected' : '') ?>>Cancelled</option>
                         </select>
-                        <button type="submit" style="padding:6px 12px; background:#34675c; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;">Set Order Status</button>
+                        <button type="submit" style="padding:6px 12px; background:#34675c; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.85rem;">Update Status</button>
                     </div>
                 </form>
             </div>

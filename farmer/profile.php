@@ -30,7 +30,7 @@ $stmt->close();
    FETCH FARMER PROFILE DATA
 ============================ */
 $stmt = $conn->prepare("
-    SELECT fp.farm_name, fp.farm_location, fp.farm_img_path, 
+    SELECT fp.farm_name, fp.farm_location, fp.farm_img_path, fp.region,
            fp.verified_by, fp.verified_at,
            CONCAT(a.first_name, ' ', a.last_name) as verified_by_name
     FROM farmer_profiles fp
@@ -102,130 +102,155 @@ $public_farm_path = !empty($farm_img)
     : $default_farm;
 
 /* ============================
-   HANDLE FORM SUBMISSION
+   HANDLE FORM SUBMISSION (separated actions)
 ============================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    
-    $first_name = trim($_POST['first_name']);
-    $middle_name = trim($_POST['middle_name']);
-    $last_name = trim($_POST['last_name']);
-    $email = trim($_POST['email']);
-    $contact_number = trim($_POST['contact_number']);
-    $address = trim($_POST['address']);
-    $farm_name = trim($_POST['farm_name']);
-    $farm_location = trim($_POST['farm_location']);
+    $action = $_POST['action'] ?? '';
 
-    if ($first_name === '' || $last_name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Please fill out all required fields correctly.';
-    }
+    // ----- Update Personal Information -----
+    if ($action === 'update_personal') {
+        $first_name = trim($_POST['first_name'] ?? '');
+        $middle_name = trim($_POST['middle_name'] ?? '');
+        $last_name = trim($_POST['last_name'] ?? '');
+        $contact_number = trim($_POST['contact_number'] ?? '');
+        $address = trim($_POST['address'] ?? '');
 
-    /* ===== Avatar Upload ===== */
-    if (!empty($_FILES['avatar']['name']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
-        $tmp = $_FILES['avatar']['tmp_name'];
-        $ext = strtolower(pathinfo($_FILES['avatar']['name'], PATHINFO_EXTENSION));
-        $allowed = ['jpg','jpeg','png','gif'];
+        if ($first_name === '' || $last_name === '') {
+            $errors[] = 'Please fill out all required fields correctly.';
+        }
 
-        if (!in_array($ext, $allowed)) {
-            $errors[] = 'Invalid image type.';
-        } else {
-            $uploadDir = __DIR__ . '/../images/uploads/profiles';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
+        /* Avatar Upload (personal) */
+        if (!empty($_FILES['avatar']['name']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+            $tmp = $_FILES['avatar']['tmp_name'];
+            $ext = strtolower(pathinfo($_FILES['avatar']['name'], PATHINFO_EXTENSION));
+            $allowed = ['jpg','jpeg','png','gif'];
 
-            $newName = 'profile_' . uniqid() . '.' . $ext;
-            $destination = $uploadDir . '/' . $newName;
-
-            if (move_uploaded_file($tmp, $destination)) {
-                $avatar_path = 'images/uploads/profiles/' . $newName;
+            if (!in_array($ext, $allowed)) {
+                $errors[] = 'Invalid image type.';
             } else {
-                $errors[] = 'Failed to upload profile image.';
+                $uploadDir = __DIR__ . '/../images/uploads/profiles';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+
+                $newName = 'profile_' . uniqid() . '.' . $ext;
+                $destination = $uploadDir . '/' . $newName;
+
+                if (move_uploaded_file($tmp, $destination)) {
+                    $avatar_path = 'images/uploads/profiles/' . $newName;
+                } else {
+                    $errors[] = 'Failed to upload profile image.';
+                }
             }
         }
-    }
 
-    /* ===== Farm Image Upload ===== */
-    if (!empty($_FILES['farm_image']['name']) && $_FILES['farm_image']['error'] === UPLOAD_ERR_OK) {
-        $tmp = $_FILES['farm_image']['tmp_name'];
-        $ext = strtolower(pathinfo($_FILES['farm_image']['name'], PATHINFO_EXTENSION));
-        $allowed = ['jpg','jpeg','png','gif'];
+        if (empty($errors)) {
+            $sql = "UPDATE users
+                    SET first_name=?, middle_name=?, last_name=?, contact_number=?, address=?";
 
-        if (!in_array($ext, $allowed)) {
-            $errors[] = 'Invalid farm image type.';
-        } else {
-            $uploadDir = __DIR__ . '/../images/uploads/farms';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
+            if (isset($avatar_path)) {
+                $sql .= ", img_path=?";
             }
 
-            $newName = 'farm_' . uniqid() . '.' . $ext;
-            $destination = $uploadDir . '/' . $newName;
+            $sql .= " WHERE user_id=?";
 
-            if (move_uploaded_file($tmp, $destination)) {
-                $farm_image_path = 'images/uploads/farms/' . $newName;
+            $stmt = $conn->prepare($sql);
+
+            if (isset($avatar_path)) {
+                $stmt->bind_param(
+                    'ssssssi',
+                    $first_name, $middle_name, $last_name,
+                    $contact_number, $address,
+                    $avatar_path, $user_id
+                );
             } else {
-                $errors[] = 'Failed to upload farm image.';
+                $stmt->bind_param(
+                    'sssssi',
+                    $first_name, $middle_name, $last_name,
+                    $contact_number, $address,
+                    $user_id
+                );
             }
+
+            $stmt->execute();
+            $stmt->close();
+
+            $_SESSION['first_name'] = $first_name;
+            $success = 'Profile updated successfully!';
+            header("Location: profile.php");
+            exit;
         }
     }
 
-    if (empty($errors)) {
-        /* ===== Update users table ===== */
-        $sql = "UPDATE users
-                SET first_name=?, middle_name=?, last_name=?, email=?, contact_number=?, address=?";
+    // ----- Update Farm Information -----
+    if ($action === 'update_farm') {
+        $farm_name = trim($_POST['farm_name'] ?? '');
+        $farm_location = trim($_POST['farm_location'] ?? '');
+        $region = trim($_POST['region'] ?? '');
 
-        if (isset($avatar_path)) {
-            $sql .= ", img_path=?";
+        // Validate region if provided
+        $valid_regions = ['', 'Manila', 'Nueva Ecija', 'Bulacan', 'Batangas', 'Laguna',
+                          'Quezon', 'Cavite', 'Rizal', 'Camarines Sur', 'Cebu', 'Davao',
+                          'Mindanao', 'Luzon', 'Visayas'];
+
+        if ($farm_name === '' || $farm_location === '') {
+            $errors[] = 'Please fill out all required farm fields.';
         }
 
-        $sql .= " WHERE user_id=?";
-
-        $stmt = $conn->prepare($sql);
-
-        if (isset($avatar_path)) {
-            $stmt->bind_param(
-                'sssssssi',
-                $first_name, $middle_name, $last_name,
-                $email, $contact_number, $address,
-                $avatar_path, $user_id
-            );
-        } else {
-            $stmt->bind_param(
-                'ssssssi',
-                $first_name, $middle_name, $last_name,
-                $email, $contact_number, $address,
-                $user_id
-            );
+        if (!in_array($region, $valid_regions)) {
+            $errors[] = 'Invalid region selected.';
         }
 
-        $stmt->execute();
-        $stmt->close();
+        /* Farm Image Upload (farm) */
+        if (!empty($_FILES['farm_image']['name']) && $_FILES['farm_image']['error'] === UPLOAD_ERR_OK) {
+            $tmp = $_FILES['farm_image']['tmp_name'];
+            $ext = strtolower(pathinfo($_FILES['farm_image']['name'], PATHINFO_EXTENSION));
+            $allowed = ['jpg','jpeg','png','gif'];
 
-        /* ===== Update farmer_profiles table ===== */
-        $farm_sql = "UPDATE farmer_profiles
-                     SET farm_name=?, farm_location=?";
+            if (!in_array($ext, $allowed)) {
+                $errors[] = 'Invalid farm image type.';
+            } else {
+                $uploadDir = __DIR__ . '/../images/uploads/farms';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
 
-        if (isset($farm_image_path)) {
-            $farm_sql .= ", farm_img_path=?";
+                $newName = 'farm_' . uniqid() . '.' . $ext;
+                $destination = $uploadDir . '/' . $newName;
+
+                if (move_uploaded_file($tmp, $destination)) {
+                    $farm_image_path = 'images/uploads/farms/' . $newName;
+                } else {
+                    $errors[] = 'Failed to upload farm image.';
+                }
+            }
         }
 
-        $farm_sql .= " WHERE farmer_id=?";
+        if (empty($errors)) {
+            $farm_sql = "UPDATE farmer_profiles
+                         SET farm_name=?, farm_location=?, region=?";
 
-        $stmt = $conn->prepare($farm_sql);
+            if (isset($farm_image_path)) {
+                $farm_sql .= ", farm_img_path=?";
+            }
 
-        if (isset($farm_image_path)) {
-            $stmt->bind_param('sssi', $farm_name, $farm_location, $farm_image_path, $user_id);
-        } else {
-            $stmt->bind_param('ssi', $farm_name, $farm_location, $user_id);
+            $farm_sql .= " WHERE farmer_id=?";
+
+            $stmt = $conn->prepare($farm_sql);
+
+            if (isset($farm_image_path)) {
+                $stmt->bind_param('ssssi', $farm_name, $farm_location, $region, $farm_image_path, $user_id);
+            } else {
+                $stmt->bind_param('sssi', $farm_name, $farm_location, $region, $user_id);
+            }
+
+            $stmt->execute();
+            $stmt->close();
+
+            $success = 'Farm information updated successfully!';
+            header("Location: profile.php");
+            exit;
         }
-
-        $stmt->execute();
-        $stmt->close();
-
-        $_SESSION['first_name'] = $first_name;
-        $success = 'Profile updated successfully!';
-        header("Location: profile.php");
-        exit;
     }
 }
 ?>
@@ -519,9 +544,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border: 1px solid rgba(16, 185, 129, 0.3);
         }
         
-        .edit-mode {
-            display: none;
-        }
+        .card .edit-mode {
+    display: none;
+    }
+
+    .card.editing .view-mode {
+        display: none;
+    }
+
+    .card.editing .edit-mode {
+        display: block;
+    }
         
         .view-mode .edit-btn {
             display: inline-block;
@@ -556,7 +589,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="header">
             <h1 style="margin: 0; color: var(--green-dark);">BantayAni Farmer Portal</h1>
             <div class="nav-links">
-                <a href="index.php">Dashboard</a>
+                <a href="..\index.php">Dashboard</a>
                 <a href="inventory.php">Inventory</a>
                 <a href="orders.php">Orders</a>
                 <a href="profile.php" style="background: rgba(31, 138, 112, 0.1);">Profile</a>
@@ -580,7 +613,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="profile-grid">
             <!-- Personal Information Card -->
-            <div class="card">
+            <div class="card" id="personalCard">
                 <h2>Personal Information</h2>
                 <div class="profile-header">
                     <img src="<?= htmlspecialchars($public_profile_path) ?>" class="profile-avatar" 
@@ -628,6 +661,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <form method="POST" enctype="multipart/form-data" class="edit-mode">
+                    <input type="hidden" name="action" value="update_personal">
                     <div class="form-group">
                         <label>Profile Picture</label>
                         <input type="file" name="avatar" accept="image/*">
@@ -662,7 +696,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <!-- Farm Information Card -->
-            <div class="card">
+            <div class="card" id="farmCard">
                 <h2>Farm Information</h2>
                 <?php if ($farmer_profile): ?>
                     <?php if ($farmer_profile['farm_img_path']): ?>
@@ -680,6 +714,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label>Farm Location</label>
                                 <p><?= htmlspecialchars($farmer_profile['farm_location']) ?></p>
                             </div>
+                            <div class="info-item">
+                                <label>Farm Region</label>
+                                <p><?= htmlspecialchars($farmer_profile['region'] ?? 'Not specified') ?></p>
+                            </div>
                             <?php if ($farmer_profile['verified_by']): ?>
                                 <div class="info-item">
                                     <label>Verified By</label>
@@ -695,6 +733,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <form method="POST" enctype="multipart/form-data" class="edit-mode" id="farmEditForm">
+                        <input type="hidden" name="action" value="update_farm">
                         <div class="form-group">
                             <label>Farm Image</label>
                             <input type="file" name="farm_image" accept="image/*">
@@ -707,6 +746,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="form-group">
                                 <label>Farm Location</label>
                                 <input type="text" name="farm_location" value="<?= htmlspecialchars($farmer_profile['farm_location']) ?>" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Farm Region (Optional)</label>
+                                <select name="region">
+                                    <option value="">-- Philippines Default --</option>
+                                    <option value="Manila" <?= ($farmer_profile['region'] === 'Manila' ? 'selected' : '') ?>>Manila</option>
+                                    <option value="Nueva Ecija" <?= ($farmer_profile['region'] === 'Nueva Ecija' ? 'selected' : '') ?>>Nueva Ecija</option>
+                                    <option value="Bulacan" <?= ($farmer_profile['region'] === 'Bulacan' ? 'selected' : '') ?>>Bulacan</option>
+                                    <option value="Batangas" <?= ($farmer_profile['region'] === 'Batangas' ? 'selected' : '') ?>>Batangas</option>
+                                    <option value="Laguna" <?= ($farmer_profile['region'] === 'Laguna' ? 'selected' : '') ?>>Laguna</option>
+                                    <option value="Quezon" <?= ($farmer_profile['region'] === 'Quezon' ? 'selected' : '') ?>>Quezon</option>
+                                    <option value="Cavite" <?= ($farmer_profile['region'] === 'Cavite' ? 'selected' : '') ?>>Cavite</option>
+                                    <option value="Rizal" <?= ($farmer_profile['region'] === 'Rizal' ? 'selected' : '') ?>>Rizal</option>
+                                    <option value="Camarines Sur" <?= ($farmer_profile['region'] === 'Camarines Sur' ? 'selected' : '') ?>>Camarines Sur</option>
+                                    <option value="Cebu" <?= ($farmer_profile['region'] === 'Cebu' ? 'selected' : '') ?>>Cebu</option>
+                                    <option value="Davao" <?= ($farmer_profile['region'] === 'Davao' ? 'selected' : '') ?>>Davao</option>
+                                    <option value="Mindanao" <?= ($farmer_profile['region'] === 'Mindanao' ? 'selected' : '') ?>>Mindanao</option>
+                                    <option value="Luzon" <?= ($farmer_profile['region'] === 'Luzon' ? 'selected' : '') ?>>Luzon</option>
+                                    <option value="Visayas" <?= ($farmer_profile['region'] === 'Visayas' ? 'selected' : '') ?>>Visayas</option>
+                                </select>
                             </div>
                         </div>
                         <div style="display: flex; gap: 10px;">
@@ -785,13 +844,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script>
         function toggleEditMode() {
-            const card = document.querySelector('.card');
-            card.classList.toggle('edit-mode');
+            const card = document.getElementById('personalCard');
+            if (card) card.classList.toggle('editing');
         }
 
         function toggleFarmEditMode() {
-            const farmCard = document.querySelectorAll('.card')[1];
-            farmCard.classList.toggle('edit-mode');
+            const farmCard = document.getElementById('farmCard');
+            if (farmCard) farmCard.classList.toggle('editing');
         }
     </script>
 </body>

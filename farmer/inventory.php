@@ -4,16 +4,42 @@ require_once "../includes/config.php";
 
 $farmer_id = $_SESSION['user_id'];
 
-// weather alerts
+// weather alerts - fetch active alerts only (last 24 hours)
 $weather_alerts = [];
 $result = $conn->query("
     SELECT * FROM weather_alerts
-    ORDER BY created_at DESC
+    WHERE created_at > NOW() - INTERVAL 1 DAY
+    ORDER BY 
+        CASE severity 
+            WHEN 'High' THEN 1 
+            WHEN 'Medium' THEN 2 
+            ELSE 3 
+        END,
+        created_at DESC
     LIMIT 5
 ");
 
 if ($result) {
     $weather_alerts = $result->fetch_all(MYSQLI_ASSOC);
+}
+
+// Get latest weather data for Philippines
+require_once '../includes/weather_helper.php';
+$current_weather = [];
+$weather_service = new WeatherService($conn);
+list($latitude, $longitude) = $weather_service->getRegionCoordinates();
+
+$stmt = $conn->prepare("
+    SELECT * FROM weather_data 
+    WHERE latitude = ? AND longitude = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+");
+$stmt->bind_param("dd", $latitude, $longitude);
+$stmt->execute();
+$weather_result = $stmt->get_result()->fetch_assoc();
+if ($weather_result && $weather_result['data_json']) {
+    $current_weather = json_decode($weather_result['data_json'], true)['current'] ?? [];
 }
 
 // yield analytics
@@ -201,7 +227,6 @@ if (!empty($due_harvests)) {
     <meta charset="UTF-8">
     <title>Inventory - BANTAY-ANI</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="index.php" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
@@ -302,7 +327,6 @@ if (!empty($due_harvests)) {
     <meta charset="UTF-8">
     <title>Inventory - BANTAY-ANI</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="index.php" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         /* Include the same admin styles as admin/users.php */
@@ -396,6 +420,13 @@ if (!empty($due_harvests)) {
             <li><a href="profile.php" class="nav-link"><span class="nav-icon">👤</span><span>Profile</span></a></li>
         </ul>
     </div>
+
+    <div class="nav-section">
+        <div class="nav-title">Analysis</div>
+        <ul class="nav-links">
+            <li><a href="benchmarking.php" class="nav-link"><span class="nav-icon">📊</span><span>Price Benchmarking</span></a></li>
+        </ul>
+    </div>
 </aside>
 
 <main class="main-content">
@@ -409,51 +440,7 @@ if (!empty($due_harvests)) {
     <button onclick="openAddModal()" class="confirm-btn">Add Crop</button>
 </div>
 
-    <!-- Weather Alerts Panel -->
-<?php if (!empty($weather_alerts)): ?>
-<div class="table-card" style="margin:20px 0; width:100%; box-sizing:border-box; padding:24px;">
-    <div class="table-header"><h3>Weather Alerts</h3></div>
-    <table class="data-table">
-        <thead>
-            <tr><th>Title</th><th>Message</th><th>Severity</th></tr>
-        </thead>
-        <tbody>
-            <?php foreach ($weather_alerts as $alert): ?>
-                <tr>
-                    <td><?= htmlspecialchars($alert['title']) ?></td>
-                    <td><?= htmlspecialchars($alert['message']) ?></td>
-                    <td><?= htmlspecialchars($alert['severity']) ?></td>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
-<?php endif; ?>
-
-<!-- Yield Analytics Panel -->
-<div class="table-card" style="margin:20px 0; width:100%; box-sizing:border-box; padding:24px;">
-    <div class="table-header" style="text-align:center;">
-        <h3>Yield Analytics</h3>
-    </div>
-    <div style="display:flex; justify-content:center; gap:30px; padding:16px; flex-wrap:wrap;">
-        <div>
-            <strong>Total Harvest Records</strong><br><?= $analytics['total_crops'] ?>
-        </div>
-        <div>
-            <strong>Total Yield</strong><br><?= $analytics['total_quantity'] ?>
-        </div>
-        <div>
-            <strong>Average Yield</strong><br><?= number_format($analytics['avg_yield'],2) ?>
-        </div>
-    </div>
-    <!-- Yield Chart -->
-    <canvas id="yieldChart" style="max-width:400px; height:220px; margin:16px auto; display:block;"></canvas>
-</div>
-
-
-
-
-    <div class="content">
+<div class="content">
         <?php if (!empty($errors)): ?>
             <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:12px 16px;border-radius:12px;margin-bottom:16px;">
                 <?php foreach ($errors as $e): ?>
@@ -469,80 +456,182 @@ if (!empty($due_harvests)) {
             <?php unset($_SESSION['message']); ?>
         <?php endif; ?>
 
-        <?php if (!empty($due_harvests)): ?>
-            <div class="table-card" style="margin:20px 0; width:100%; box-sizing:border-box; padding:24px;">
-                <div class="table-header">
-                    <h3>Harvest Due Today</h3>
-                </div>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Crop</th>
-                            <th>Quantity</th>
-                            <th>Scheduled Date</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($due_harvests as $h): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($h['crop_name']) ?></td>
-                                <td><?= htmlspecialchars($h['quantity'].' '.$h['unit']) ?></td>
-                                <td><?= htmlspecialchars($h['harvest_date']) ?></td>
-                                <td>
-                                    <form method="POST" style="display:inline;">
-                                        <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
-                                        <button type="submit" name="harvest_action" value="confirm" class="confirm-btn">Confirm Harvest</button>
-                                    </form>
-                                    <form method="POST" style="display:inline;">
-                                        <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
-                                        <button type="submit" name="harvest_action" value="cancel" class="confirm-btn danger">Cancel</button>
-                                    </form>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-
-        <div class="table-card" style="margin:20px 0; width:100%; box-sizing:border-box; padding:24px;"></div>
-            
-            <div class="table-header">
-                <h3>My Crops</h3>
-            </div>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Crop</th>
-                        <th>Quantity</th>
-                        <th>Harvest Date</th>
-                        <th>Price</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php if (!empty($inventory)): ?>
-                    <?php foreach ($inventory as $item): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($item['crop_name']) ?></td>
-                            <td><?= htmlspecialchars($item['quantity'].' '.$item['unit']) ?></td>
-                            <td><?= htmlspecialchars($item['harvest_date']) ?></td>
-                            <td><?= number_format($item['price'],2) ?></td>
-                            <td>
-                                <button class="icon-btn edit-btn" onclick="openEditModal(<?= $item['inventory_id'] ?>, <?= $item['crop_id'] ?>, '<?= htmlspecialchars($item['crop_name'], ENT_QUOTES) ?>', <?= $item['quantity'] ?>, '<?= $item['harvest_date'] ?>', <?= $item['price'] ?>)"><i class="fa-solid fa-pen-to-square"></i></button>
-                                <button class="icon-btn delete-btn" onclick="openDeleteModal(<?= $item['inventory_id'] ?>)"><i class="fa-solid fa-trash"></i></button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr><td colspan="5" style="text-align:center; padding:40px;">No crops found.</td></tr>
+        <!-- 2-Column Grid Layout -->
+        <div style="display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start;">
+            <!-- LEFT COLUMN: Crop Inventory Management -->
+            <div>
+                <!-- Harvest Due Today -->
+                <?php if (!empty($due_harvests)): ?>
+                    <div class="table-card" style="margin:0 0 20px 0; width:100%; box-sizing:border-box; padding:24px;">
+                        <div class="table-header">
+                            <h3>Harvest Due Today</h3>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Crop</th>
+                                    <th>Quantity</th>
+                                    <th>Scheduled Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($due_harvests as $h): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($h['crop_name']) ?></td>
+                                        <td><?= htmlspecialchars($h['quantity'].' '.$h['unit']) ?></td>
+                                        <td><?= htmlspecialchars($h['harvest_date']) ?></td>
+                                        <td>
+                                            <form method="POST" style="display:inline;">
+                                                <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
+                                                <button type="submit" name="harvest_action" value="confirm" class="confirm-btn">Confirm Harvest</button>
+                                            </form>
+                                            <form method="POST" style="display:inline;">
+                                                <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
+                                                <button type="submit" name="harvest_action" value="cancel" class="confirm-btn danger">Cancel</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 <?php endif; ?>
-                </tbody>
-            </table>
+
+                <!-- My Crops Inventory Table -->
+                <div class="table-card" style="margin:0; width:100%; box-sizing:border-box; padding:24px;">
+                    <div class="table-header">
+                        <h3>My Crops</h3>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Crop</th>
+                                <th>Quantity</th>
+                                <th>Harvest Date</th>
+                                <th>Price</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php if (!empty($inventory)): ?>
+                            <?php foreach ($inventory as $item): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($item['crop_name']) ?></td>
+                                    <td><?= htmlspecialchars($item['quantity'].' '.$item['unit']) ?></td>
+                                    <td><?= htmlspecialchars($item['harvest_date']) ?></td>
+                                    <td><?= number_format($item['price'],2) ?></td>
+                                    <td>
+                                        <button class="icon-btn edit-btn" onclick="openEditModal(<?= $item['inventory_id'] ?>, <?= $item['crop_id'] ?>, '<?= htmlspecialchars($item['crop_name'], ENT_QUOTES) ?>', <?= $item['quantity'] ?>, '<?= $item['harvest_date'] ?>', <?= $item['price'] ?>)"><i class="fa-solid fa-pen-to-square"></i></button>
+                                        <button class="icon-btn delete-btn" onclick="openDeleteModal(<?= $item['inventory_id'] ?>)"><i class="fa-solid fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr><td colspan="5" style="text-align:center; padding:40px;">No crops found.</td></tr>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Weather & Analytics Sidebar -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <!-- Current Weather & Alerts Panel -->
+                <div class="table-card" style="margin:0; width:100%; box-sizing:border-box; padding:20px;">
+                    <div class="table-header" style="justify-content: space-between; padding: 0 0 12px 0; border-bottom: 1px solid var(--border);">
+                        <h3 style="font-size: 1.1rem; margin: 0;">Weather & Alerts</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="refreshWeather()" class="confirm-btn" style="padding:6px 12px; font-size:0.85rem; background:#1f8a70; color:white; border:none; border-radius:6px; cursor:pointer;">🔄 Refresh</button>
+                            <button onclick="clearAlerts()" class="confirm-btn" style="padding:6px 12px; font-size:0.85rem; background:#ef4444; color:white; border:none; border-radius:6px; cursor:pointer;">✕ Clear</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Weather Display -->
+                    <?php if (!empty($current_weather)): ?>
+                    <div style="padding:12px 0; border-bottom:1px solid var(--border);">
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="text-align: center;">
+                                <div style="font-size:2rem; font-weight:bold; color:#1f8a70;">
+                                    <?= number_format($current_weather['temperature_2m'] ?? 0, 1) ?>°C
+                                </div>
+                                <div style="color:var(--text-light); font-size:0.85rem;">Temperature</div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div style="text-align: center; padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                    <div style="font-size:1rem; font-weight:bold;">
+                                        <?= $current_weather['relative_humidity_2m'] ?? 'N/A' ?>%
+                                    </div>
+                                    <div style="color:var(--text-light); font-size:0.75rem;">Humidity</div>
+                                </div>
+                                <div style="text-align: center; padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                    <div style="font-size:1rem; font-weight:bold;">
+                                        <?= number_format($current_weather['wind_speed_10m'] ?? 0, 1) ?> km/h
+                                    </div>
+                                    <div style="color:var(--text-light); font-size:0.75rem;">Wind</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div style="padding:12px; color:var(--text-light); text-align:center; font-size:0.85rem;">
+                        No weather data. <a href="#" onclick="refreshWeather(); return false;" style="color:#1f8a70; text-decoration:none;">Fetch now</a>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <!-- Weather Alerts -->
+                    <?php if (!empty($weather_alerts)): ?>
+                    <div style="padding-top:12px;">
+                        <h4 style="margin:0 0 8px 0; color:var(--text); font-size:0.95rem;">Alerts</h4>
+                        <?php foreach ($weather_alerts as $alert): ?>
+                            <div style="padding:8px; margin-bottom:6px; border-radius:6px; font-size:0.8rem;
+                                <?php 
+                                    if ($alert['severity'] === 'High') echo 'background:#fef2f2; border-left:3px solid #ef4444;';
+                                    elseif ($alert['severity'] === 'Medium') echo 'background:#fffbeb; border-left:3px solid #f59e0b;';
+                                    else echo 'background:#f0fdf4; border-left:3px solid #10b981;';
+                                ?>">
+                                <div style="font-weight:600; margin-bottom:2px;">
+                                    <?= htmlspecialchars($alert['title']) ?>
+                                </div>
+                                <div style="color:var(--text-light);">
+                                    <?= htmlspecialchars($alert['message']) ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php else: ?>
+                    <div style="padding-top:8px; color:var(--text-light); text-align:center; font-size:0.85rem;">
+                        No alerts ✓
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Yield Analytics Panel -->
+                <div class="table-card" style="margin:0; width:100%; box-sizing:border-box; padding:20px;">
+                    <div class="table-header" style="padding: 0 0 12px 0; border-bottom: 1px solid var(--border); justify-content: center;">
+                        <h3 style="font-size: 1.1rem; margin: 0;">Yield Analytics</h3>
+                    </div>
+                    <div style="padding-top:12px;">
+                        <div style="display: flex; flex-direction: column; gap: 12px; text-align: center;">
+                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= $analytics['total_crops'] ?></div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Harvest Records</div>
+                            </div>
+                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= $analytics['total_quantity'] ?></div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Total Yield</div>
+                            </div>
+                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= number_format($analytics['avg_yield'],2) ?></div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Avg Yield</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    </div>
+        <!-- End 2-Column Grid -->
+
 </main>
 
 <!-- Add/Edit/Delete Modals same as previous example -->
@@ -644,21 +733,95 @@ function openDeleteModal(id) { document.getElementById('deleteInventoryId').valu
 function closeDeleteModal() { document.getElementById('deleteModal').style.display='none'; }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<canvas id="yieldChart" style="max-width:600px;margin-bottom:20px;"></canvas>
 <script>
-const ctx = document.getElementById('yieldChart');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: ['Total Yield'],
-        datasets: [{
-            label: 'Quantity',
-            data: [<?= $analytics['total_quantity'] ?>],
-            backgroundColor: 'rgba(29, 78, 216, 0.7)'
-        }]
-    },
-    options: { responsive:true, plugins:{ legend:{ display:false } } }
-});
+// Refresh weather data
+function refreshWeather() {
+    alert('Refresh button clicked!');
+    console.log('refreshWeather function called');
+    
+    const btn = document.querySelector('button[onclick="refreshWeather()"]');
+    if (!btn) {
+        console.error('Could not find refresh button');
+        alert('Error: Could not find button');
+        return;
+    }
+    
+    console.log('Found button:', btn);
+    btn.disabled = true;
+    btn.textContent = '⏳ Updating...';
+    
+    const apiUrl = '../api/weather.php?action=refresh';
+    console.log('Fetching from:', apiUrl);
+    
+    fetch(apiUrl, {
+        method: 'GET',
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        console.log('Response received. Status:', response.status);
+        if (!response.ok) {
+            return response.text().then(text => {
+                console.error('Response error text:', text);
+                throw new Error(`HTTP ${response.status}: ${text}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Weather data received:', data);
+        if (data.success || data.alerts_count !== undefined) {
+            console.log('Success! Reloading page...');
+            alert('Weather updated! Reloading...');
+            setTimeout(() => {
+                location.reload();
+            }, 500);
+        } else if (data.error) {
+            alert('Weather Error: ' + data.error);
+            btn.disabled = false;
+            btn.textContent = '🔄 Refresh';
+        } else {
+            console.log('Unexpected response structure');
+            alert('Unexpected response: ' + JSON.stringify(data));
+            btn.disabled = false;
+            btn.textContent = '🔄 Refresh';
+        }
+    })
+    .catch(error => {
+        console.error('Fetch error:', error);
+        alert('Failed to refresh weather: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = '🔄 Refresh';
+    });
+}
+
+// Clear all weather alerts
+function clearAlerts() {
+    if (!confirm('Clear all weather alerts?')) {
+        return;
+    }
+    
+    fetch('../api/clear_alerts.php', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Clear alerts response:', data);
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to clear alerts'));
+        }
+    })
+    .catch(error => {
+        console.error('Clear alerts error:', error);
+        alert('Failed to clear alerts: ' + error.message);
+    });
+}
 </script>
 
 </body>

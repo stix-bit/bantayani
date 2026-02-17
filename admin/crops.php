@@ -72,7 +72,7 @@ $crops = $result->fetch_all(MYSQLI_ASSOC);
         <ul class="nav-links">
             <li><a href="index.php" class="nav-link"><span class="nav-icon">📊</span><span>Dashboard</span></a></li>
             <li><a href="users.php" class="nav-link"><span class="nav-icon">👥</span><span>Users</span></a></li>
-            <li><a href="verification.php" class="nav-link"><span class="nav-icon">✅</span><span>Verification</span></a></li>
+            <li><a href="verify_farmers.php" class="nav-link"><span class="nav-icon">✅</span><span>Verification</span></a></li>
             <li><a href="orders.php" class="nav-link"><span class="nav-icon">📦</span><span>Orders</span></a></li>
             <li><a href="reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
         </ul>

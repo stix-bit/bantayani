@@ -4,11 +4,11 @@ require_once __DIR__ . '/../includes/auth_helper.php';
 require_login('Admin');
 require_once '../includes/config.php';
 
-$days = $_GET['days'] ?? 30;
+$days = (int)($_GET['days'] ?? 30);
 
-// Fetch benchmarking data from completed orders
+// Fetch benchmarking data for all crops (use LEFT JOIN so crops without sales still show)
 $sql = "
-SELECT 
+SELECT
     c.crop_id,
     c.crop_name,
     c.unit,
@@ -16,12 +16,12 @@ SELECT
     ROUND(AVG(ci.price), 2) AS avg_price,
     MIN(ci.price) AS min_price,
     MAX(ci.price) AS max_price
-FROM order_items oi
-JOIN orders o ON oi.order_id = o.order_id
-JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-JOIN crops c ON ci.crop_id = c.crop_id
-WHERE o.order_status = 'Completed'
-AND o.order_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+FROM crops c
+LEFT JOIN crops_inventory ci ON ci.crop_id = c.crop_id
+LEFT JOIN order_items oi ON oi.inventory_id = ci.inventory_id
+LEFT JOIN orders o ON oi.order_id = o.order_id
+    AND o.order_status = 'Completed'
+    AND o.order_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
 GROUP BY c.crop_id
 ORDER BY avg_price DESC
 ";
@@ -152,7 +152,7 @@ $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         </div>
 
         <div class="nav-links">
-            <a href="../index.php" class="nav-link active">Dashboard</a>
+            <a href="./index.php" class="nav-link active">Dashboard</a>
             <a href="./users.php" class="nav-link">Users</a>
             <a href="./reports.php" class="nav-link">Reports</a>
             <a href="./benchmarking.php" class="nav-link">Pricing</a>

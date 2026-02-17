@@ -84,7 +84,7 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
     <!-- Sidebar -->
     <aside class="sidebar">
         <div class="logo-container">
-            <a href="http://localhost/bantayani/admin/index.php" class="logo">
+            <a href="http://localhost/bantayani/index.php" class="logo">
                 <div class="logo-icon">BA</div>
                 <div class="logo-text">BANTAY<span>ANI</span></div>
             </a>

@@ -743,7 +743,7 @@ if (!isset($_SESSION['user_id'])) {
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="./farmer/benchmarking.php" class="nav-link">Pricing</a>
-                <a href="./farmer/profile.php" class="nav-link">Profile</a>
+                <!-- <a href="./farmer/profile.php" class="nav-link">Profile</a> -->
             <?php elseif ($user_role === 'Buyer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
@@ -764,7 +764,7 @@ if (!isset($_SESSION['user_id'])) {
                 $public_path   = '/bantayani/' . $profile_img;
             ?>
 
-            <a href="./user/profile.php" title="View Profile">
+            <a href="./farmer/profile.php" title="View Profile">
                 <div class="user-avatar">
                     <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
                         <img src="<?= htmlspecialchars($public_path) ?>"
@@ -910,7 +910,7 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="action-title">Add New Crop</div>
                             <div class="action-desc">List your crops for sale</div>
                         </a>
-                        <a href="harvest-schedule.php" class="action-card">
+                        <a href="./farmer/inventory.php" class="action-card">
                             <div class="action-icon">📅</div>
                             <div class="action-title">Harvest Schedule</div>
                             <div class="action-desc">Plan your harvest dates</div>
@@ -1012,7 +1012,7 @@ if (!isset($_SESSION['user_id'])) {
                     <div class="section-card">
                         <div class="section-header">
                             <h3 class="section-title">Upcoming Harvests</h3>
-                            <a href="harvest-schedule.php" class="view-all">View All →</a>
+                            <a href="./farmer/inventory.php" class="view-all">View All →</a>
                         </div>
                         
                         <div class="quick-stats">
