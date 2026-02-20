@@ -23,11 +23,25 @@ if ($result) {
     $weather_alerts = $result->fetch_all(MYSQLI_ASSOC);
 }
 
-// Get latest weather data for Philippines
+// Get latest weather data for farmer's region (same as API refresh)
 require_once '../includes/weather_helper.php';
 $current_weather = [];
 $weather_service = new WeatherService($conn);
-list($latitude, $longitude) = $weather_service->getRegionCoordinates();
+$region = null;
+$region_stmt = $conn->prepare("SELECT region FROM farmer_profiles WHERE farmer_id = ?");
+if ($region_stmt) {
+    $region_stmt->bind_param('i', $farmer_id);
+    $region_stmt->execute();
+    $region_result = $region_stmt->get_result();
+    if ($region_result) {
+        $row = $region_result->fetch_assoc();
+        if ($row && !empty($row['region'])) {
+            $region = $row['region'];
+        }
+    }
+    $region_stmt->close();
+}
+list($latitude, $longitude) = $weather_service->getRegionCoordinates($region);
 
 $stmt = $conn->prepare("
     SELECT * FROM weather_data 
@@ -736,13 +750,11 @@ function closeDeleteModal() { document.getElementById('deleteModal').style.displ
 <script>
 // Refresh weather data
 function refreshWeather() {
-    alert('Refresh button clicked!');
     console.log('refreshWeather function called');
     
     const btn = document.querySelector('button[onclick="refreshWeather()"]');
     if (!btn) {
         console.error('Could not find refresh button');
-        alert('Error: Could not find button');
         return;
     }
     
@@ -771,7 +783,6 @@ function refreshWeather() {
         console.log('Weather data received:', data);
         if (data.success || data.alerts_count !== undefined) {
             console.log('Success! Reloading page...');
-            alert('Weather updated! Reloading...');
             setTimeout(() => {
                 location.reload();
             }, 500);

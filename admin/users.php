@@ -144,7 +144,7 @@ function closeEditModal() {
         <ul class="nav-links">
             <li><a href="index.php" class="nav-link"><span class="nav-icon">📊</span><span>Dashboard</span></a></li>
             <li><a href="users.php" class="nav-link active"><span class="nav-icon">👥</span><span>Users</span></a></li>
-            <li><a href="verification.php" class="nav-link"><span class="nav-icon">✅</span><span>Verification</span></a></li>
+            <li><a href="verify_farmers.php" class="nav-link"><span class="nav-icon">✅</span><span>Verification</span></a></li>
             <li><a href="orders.php" class="nav-link"><span class="nav-icon">📦</span><span>Orders</span></a></li>
             <li><a href="reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
         </ul>
@@ -155,7 +155,6 @@ function closeEditModal() {
             <ul class="nav-links">
                 <li><a href="crops.php" class="nav-link"><span class="nav-icon">🌱</span><span>Crop Categories</span></a></li>
                 <li><a href="benchmarking.php" class="nav-link"><span class="nav-icon">💰</span><span>Price Benchmarks</span></a></li>
-                <li><a href="delivery.php" class="nav-link"><span class="nav-icon">🚚</span><span>Delivery Partners</span></a></li>
                 <li><a href="announcements.php" class="nav-link"><span class="nav-icon">📢</span><span>Announcements</span></a></li>
             </ul>
         </div>

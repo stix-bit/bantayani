@@ -107,7 +107,6 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
             <ul class="nav-links">
                 <li><a href="crops.php" class="nav-link"><span class="nav-icon">🌱</span><span>Crop Categories</span></a></li>
                 <li><a href="benchmarking.php" class="nav-link"><span class="nav-icon">💰</span><span>Price Benchmarks</span></a></li>
-                <li><a href="delivery.php" class="nav-link"><span class="nav-icon">🚚</span><span>Delivery Partners</span></a></li>
                 <li><a href="announcements.php" class="nav-link"><span class="nav-icon">📢</span><span>Announcements</span></a></li>
             </ul>
         </div>
@@ -298,7 +297,7 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
 
             <!-- Quick Actions -->
             <div class="quick-actions">
-                <a href="verification.php" class="action-card">
+                <a href="verify_farmers.php" class="action-card">
                     <div class="action-icon">✅</div>
                     <div class="action-title">Review Verifications</div>
                     <div class="action-desc">Approve or reject pending farmer verifications</div>
