@@ -3,10 +3,12 @@
 require_once __DIR__ . '/../includes/auth_helper.php';
 require_login('Farmer');
 require_once '../includes/config.php';
+require_once __DIR__ . '/../includes/dynamic_pricing.php';
 
 $farmer_id = $_SESSION['user_id'];
-$days = $_GET['days'] ?? 30;
+$days = (int)($_GET['days'] ?? 30);
 
+// Market stats from completed orders (Delivered/Shipped)
 $sql = "
 SELECT 
     c.crop_id,
@@ -23,7 +25,7 @@ LEFT JOIN order_items oi
     ON ci.inventory_id = oi.inventory_id
 LEFT JOIN orders o 
     ON oi.order_id = o.order_id
-    AND o.order_status = 'Completed'
+    AND o.order_status IN ('Delivered', 'Shipped')
     AND o.order_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
 GROUP BY c.crop_id
 ";
@@ -32,6 +34,9 @@ $stmt = $conn->prepare($sql);
 $stmt->bind_param("ii", $farmer_id, $days);
 $stmt->execute();
 $data = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Dynamic pricing: recommended and allowed range per crop
+$dynamic_ranges = getAllCropsDynamicPriceRanges($conn, $days);
 
 function getStatus($farmer, $avg) {
     if ($farmer == null) return "No Price";
@@ -157,7 +162,7 @@ function getStatus($farmer, $avg) {
     <div class="content">
         <div class="card">
             <div class="card-header">
-                <h2>🌱 Pricing Comparison & Recommendation</h2>
+                <h2>🌱 Pricing Comparison & Dynamic Pricing</h2>
                 <form method="GET" style="display: flex; align-items: center; gap: 12px;">
                     <label style="color: var(--text-light); font-weight: 500;">Compare last:</label>
                     <select name="days" onchange="this.form.submit()" style="min-width: 120px;">
@@ -167,6 +172,7 @@ function getStatus($farmer, $avg) {
                     </select>
                 </form>
             </div>
+            <p style="color:var(--text-light); font-size:0.9rem; margin:-8px 0 16px 0;">Recommended price is based on supply, demand, current listings, and historical sales. When adding or editing inventory, your price must be within the <strong>Allowed Range</strong>.</p>
 
             <table class="data-table">
                 <thead>
@@ -176,6 +182,8 @@ function getStatus($farmer, $avg) {
                         <th>Market Avg</th>
                         <th>Min</th>
                         <th>Max</th>
+                        <th>Dynamic Recommended</th>
+                        <th>Allowed Range</th>
                         <th>Recommendation</th>
                     </tr>
                 </thead>
@@ -183,6 +191,7 @@ function getStatus($farmer, $avg) {
                     <?php if (!empty($data)): ?>
                         <?php foreach ($data as $row): 
                             $status = getStatus($row['farmer_price'], $row['market_avg']);
+                            $dr = $dynamic_ranges[$row['crop_id']] ?? null;
                         ?>
                         <tr>
                             <td><?= htmlspecialchars($row['crop_name']) ?> (<?= $row['unit'] ?>)</td>
@@ -190,6 +199,8 @@ function getStatus($farmer, $avg) {
                             <td class="price-cell">₱<?= number_format($row['market_avg'],2) ?></td>
                             <td class="price-cell">₱<?= number_format($row['market_min'], 2) ?></td>
                             <td class="price-cell">₱<?= number_format($row['market_max'], 2) ?></td>
+                            <td class="price-cell"><?= $dr && $dr['has_data'] ? '₱'.number_format($dr['recommended'], 2) : '—' ?></td>
+                            <td class="price-cell" style="font-size:0.9rem;"><?= $dr && $dr['has_data'] ? '₱'.number_format($dr['price_min'], 2).' – ₱'.number_format($dr['price_max'], 2) : '—' ?></td>
                             <td class="status-<?= strtolower(str_replace(' ', '', $status)) ?>">
                                 <?= $status ?>
                             </td>
@@ -197,7 +208,7 @@ function getStatus($farmer, $avg) {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="6" style="text-align:center; padding:40px; color:var(--text-light);">
+                            <td colspan="8" style="text-align:center; padding:40px; color:var(--text-light);">
                                 No pricing data available yet.
                             </td>
                         </tr>

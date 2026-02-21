@@ -107,6 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['harvest_action'])) {
     exit;
 }
 
+require_once __DIR__ . '/../includes/dynamic_pricing.php';
+
 // Handle Add/Edit/Delete actions
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'add') {
@@ -125,10 +127,18 @@ if (isset($_POST['action'])) {
     }
     $quantity = $_POST['quantity'];
     $harvest_date = $_POST['harvest_date'];
-    $price = $_POST['price'];
+    $price = isset($_POST['price']) ? (float)$_POST['price'] : 0;
 
     if ($crop_id <= 0) {
         $errors[] = 'Please select a valid crop.';
+    }
+
+    // Dynamic pricing: seller must be within allowed range
+    if ($crop_id > 0 && empty($errors)) {
+        $validation = validatePriceInRange($conn, $crop_id, $price);
+        if (!$validation['valid']) {
+            $errors[] = $validation['message'];
+        }
     }
 
     // Check if farmer already has this crop
@@ -166,14 +176,19 @@ if (isset($_POST['action'])) {
         }
         $quantity = $_POST['quantity'];
         $harvest_date = $_POST['harvest_date'];
-        $price = $_POST['price'];
+        $price = isset($_POST['price']) ? (float)$_POST['price'] : 0;
 
         if ($crop_id > 0) {
-            $stmt = $conn->prepare("UPDATE crops_inventory SET crop_id = ?, quantity = ?, harvest_date = ?, price = ? WHERE inventory_id = ? AND farmer_id = ?");
-            $stmt->bind_param("idsdii", $crop_id, $quantity, $harvest_date, $price, $inventory_id, $farmer_id);
-            $stmt->execute();
-            $stmt->close();
-            $_SESSION['message'] = 'Crop updated successfully!';
+            $validation = validatePriceInRange($conn, $crop_id, $price);
+            if (!$validation['valid']) {
+                $errors[] = $validation['message'];
+            } else {
+                $stmt = $conn->prepare("UPDATE crops_inventory SET crop_id = ?, quantity = ?, harvest_date = ?, price = ? WHERE inventory_id = ? AND farmer_id = ?");
+                $stmt->bind_param("idsdii", $crop_id, $quantity, $harvest_date, $price, $inventory_id, $farmer_id);
+                $stmt->execute();
+                $stmt->close();
+                $_SESSION['message'] = 'Crop updated successfully!';
+            }
         } else {
             $errors[] = 'Please select a valid crop.';
         }
@@ -197,6 +212,9 @@ if (isset($_POST['action'])) {
 // Fetch all crops
 $crops_stmt = $conn->query("SELECT crop_id, crop_name, unit FROM crops ORDER BY crop_name ASC");
 $crops = $crops_stmt->fetch_all(MYSQLI_ASSOC);
+
+// Dynamic pricing: allowed range per crop (for modals)
+$price_ranges_by_crop = getAllCropsDynamicPriceRanges($conn);
 
 // Fetch farmer inventory
 $stmt = $conn->prepare("
@@ -660,7 +678,9 @@ if (!empty($due_harvests)) {
             <input type="hidden" name="crop_id" id="addCropId">
             <label>Quantity</label><input type="number" step="0.01" name="quantity" required>
             <label>Harvest Date</label><input type="date" name="harvest_date" required>
-            <label>Price</label><input type="number" step="0.01" name="price" required>
+            <label>Price (per unit)</label>
+            <input type="number" step="0.01" name="price" id="addPrice" required placeholder="Within market range">
+            <div id="addPriceHint" style="margin-top:6px; font-size:0.85rem; color:var(--text-light);"></div>
             <div style="margin-top:10px;">
                 <button type="submit" class="confirm-btn">Add</button>
                 <button type="button" onclick="closeAddModal()" class="confirm-btn">Cancel</button>
@@ -681,7 +701,9 @@ if (!empty($due_harvests)) {
             <input type="hidden" name="crop_id" id="editCropId">
             <label>Quantity</label><input type="number" id="editQuantity" step="0.01" name="quantity" required>
             <label>Harvest Date</label><input type="date" id="editHarvestDate" name="harvest_date" required>
-            <label>Price</label><input type="number" id="editPrice" step="0.01" name="price" required>
+            <label>Price (per unit)</label>
+            <input type="number" id="editPrice" step="0.01" name="price" required placeholder="Within market range">
+            <div id="editPriceHint" style="margin-top:6px; font-size:0.85rem; color:var(--text-light);"></div>
             <div style="margin-top:10px;">
                 <button type="submit" class="confirm-btn">Save</button>
                 <button type="button" onclick="closeEditModal()" class="confirm-btn">Cancel</button>
@@ -713,10 +735,25 @@ if (!empty($due_harvests)) {
 </div>
 
 <script>
-function openAddModal() { document.getElementById('addModal').style.display='flex'; }
-function closeAddModal() { document.getElementById('addModal').style.display='none'; }
+var priceRanges = <?= json_encode($price_ranges_by_crop) ?>;
 
-function syncCropId(textInputId, hiddenInputId) {
+function updatePriceHint(cropId, hintId, priceInputId) {
+    var hint = document.getElementById(hintId);
+    var input = document.getElementById(priceInputId);
+    if (!hint || !input) return;
+    var r = priceRanges[cropId];
+    if (!r || !r.has_data) {
+        hint.textContent = 'No market data yet. Set a competitive price.';
+        input.removeAttribute('min');
+        input.removeAttribute('max');
+        return;
+    }
+    hint.textContent = 'Recommended: \u20B1' + Number(r.recommended).toFixed(2) + ' (allowed: \u20B1' + Number(r.price_min).toFixed(2) + ' - \u20B1' + Number(r.price_max).toFixed(2) + ')';
+    input.setAttribute('min', r.price_min);
+    input.setAttribute('max', r.price_max);
+}
+
+function syncCropId(textInputId, hiddenInputId, hintId, priceInputId) {
     var val = document.getElementById(textInputId).value;
     var opts = document.getElementById('cropList').options;
     var id = '';
@@ -727,10 +764,18 @@ function syncCropId(textInputId, hiddenInputId) {
         }
     }
     document.getElementById(hiddenInputId).value = id;
+    if (hintId && priceInputId && id) updatePriceHint(parseInt(id, 10), hintId, priceInputId);
 }
 
-document.getElementById('addCropName').addEventListener('input', function() { syncCropId('addCropName', 'addCropId'); });
-document.getElementById('editCropName').addEventListener('input', function() { syncCropId('editCropName', 'editCropId'); });
+function openAddModal() {
+    document.getElementById('addModal').style.display='flex';
+    var cropId = document.getElementById('addCropId').value;
+    if (cropId) updatePriceHint(parseInt(cropId, 10), 'addPriceHint', 'addPrice');
+}
+function closeAddModal() { document.getElementById('addModal').style.display='none'; }
+
+document.getElementById('addCropName').addEventListener('input', function() { syncCropId('addCropName', 'addCropId', 'addPriceHint', 'addPrice'); });
+document.getElementById('editCropName').addEventListener('input', function() { syncCropId('editCropName', 'editCropId', 'editPriceHint', 'editPrice'); });
 
 function openEditModal(id, crop_id, crop_name, quantity, harvest_date, price) {
     document.getElementById('editInventoryId').value = id;
@@ -740,6 +785,7 @@ function openEditModal(id, crop_id, crop_name, quantity, harvest_date, price) {
     document.getElementById('editHarvestDate').value = harvest_date;
     document.getElementById('editPrice').value = price;
     document.getElementById('editModal').style.display='flex';
+    updatePriceHint(parseInt(crop_id, 10), 'editPriceHint', 'editPrice');
 }
 function closeEditModal() { document.getElementById('editModal').style.display='none'; }
 

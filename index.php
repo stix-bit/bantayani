@@ -9,6 +9,12 @@ $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'];
 $first_name = $_SESSION['first_name'];
 
+// Admins go to admin dashboard
+if ($user_role === 'Admin') {
+    header('Location: admin/index.php');
+    exit;
+}
+
 $profile_img = null;
 
 $stmt = $conn->prepare("SELECT img_path FROM users WHERE user_id = ?");
@@ -19,6 +25,9 @@ $stmt->fetch();
 $stmt->close();
 
 $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
+
+// Profile URL by role (for avatar link)
+$profile_url = $user_role === 'Farmer' ? './farmer/profile.php' : './buyer/profile.php';
 
 // Fetch dashboard data based on user role
 $dashboard_data = [];
@@ -115,43 +124,7 @@ try {
         $recent_orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
         
-    } elseif ($user_role === 'Admin') {
-        // Admin-specific data
-        $stmt = $conn->prepare("
-            SELECT 
-                COUNT(DISTINCT user_id) as total_users,
-                COUNT(DISTINCT CASE WHEN role = 'Farmer' THEN user_id END) as total_farmers,
-                COUNT(DISTINCT CASE WHEN role = 'Buyer' THEN user_id END) as total_buyers,
-                COALESCE(SUM(ci.price * ci.quantity), 0) as total_volume,
-                (SELECT COUNT(*) FROM deliveries WHERE delivery_status = 'Delivering') as in_transit_deliveries
-            FROM users u
-            LEFT JOIN crops_inventory ci ON u.user_id = ci.farmer_id
-            WHERE u.role IN ('Farmer', 'Buyer')
-        ");
-        $stmt->execute();
-        $dashboard_data = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        
-        // Get recent orders for admin
-        $stmt = $conn->prepare("
-            SELECT o.order_id, o.order_date, o.order_status, 
-                   u.first_name, u.last_name,
-                   GROUP_CONCAT(DISTINCT c.crop_name SEPARATOR ', ') as crops
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-            JOIN crops c ON ci.crop_id = c.crop_id
-            JOIN buyer_profiles bp ON o.buyer_id = bp.buyer_id
-            JOIN users u ON bp.buyer_id = u.user_id
-            GROUP BY o.order_id
-            ORDER BY o.order_date DESC
-            LIMIT 5
-        ");
-        $stmt->execute();
-        $recent_orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-    }
-    
+    } 
     // Get recent notifications for all users
     $stmt = $conn->prepare("
         SELECT notification_type, message, created_at 
@@ -749,11 +722,6 @@ if (!isset($_SESSION['user_id'])) {
                 <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
                 <a href="search.php" class="nav-link">Farmers</a>
-            <?php elseif ($user_role === 'Admin'): ?>
-                <a href="./admin/index.php" class="nav-link active">Dashboard</a>
-                <a href="./admin/users.php" class="nav-link">Users</a>
-                <a href="./admin/reports.php" class="nav-link">Reports</a>
-                <a href="./admin/benchmarking.php" class="nav-link">Pricing</a>
             <?php endif; ?>
         </div>
         
@@ -764,7 +732,7 @@ if (!isset($_SESSION['user_id'])) {
                 $public_path   = '/bantayani/' . $profile_img;
             ?>
 
-            <a href="./farmer/profile.php" title="View Profile">
+            <a href="<?= htmlspecialchars($profile_url) ?>" title="View Profile">
                 <div class="user-avatar">
                     <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
                         <img src="<?= htmlspecialchars($public_path) ?>"
@@ -834,27 +802,6 @@ if (!isset($_SESSION['user_id'])) {
                     <div class="stat-icon buyer">⏳</div>
                     <div class="stat-value"><?= $dashboard_data['pending_orders'] ?? 0 ?></div>
                     <div class="stat-label">Pending Orders</div>
-                </div>
-            <?php elseif ($user_role === 'Admin'): ?>
-                <div class="stat-card">
-                    <div class="stat-icon admin">👥</div>
-                    <div class="stat-value"><?= $dashboard_data['total_users'] ?? 0 ?></div>
-                    <div class="stat-label">Total Users</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon admin">👨‍🌾</div>
-                    <div class="stat-value"><?= $dashboard_data['total_farmers'] ?? 0 ?></div>
-                    <div class="stat-label">Farmers</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon admin">🏪</div>
-                    <div class="stat-value"><?= $dashboard_data['total_buyers'] ?? 0 ?></div>
-                    <div class="stat-label">Buyers</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon admin">🚚</div>
-                    <div class="stat-value"><?= $dashboard_data['in_transit_deliveries'] ?? 0 ?></div>
-                    <div class="stat-label">In Transit</div>
                 </div>
             <?php endif; ?>
         </div>
@@ -946,22 +893,6 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="action-title">Account Settings</div>
                             <div class="action-desc">Update your preferences</div>
                         </a>
-                    <?php elseif ($user_role === 'Admin'): ?>
-                        <a href="admin/users.php" class="action-card">
-                            <div class="action-icon">👥</div>
-                            <div class="action-title">Manage Users</div>
-                            <div class="action-desc">View and verify users</div>
-                        </a>
-                        <a href="verification.php" class="action-card">
-                            <div class="action-icon">✅</div>
-                            <div class="action-title">Verification Queue</div>
-                            <div class="action-desc">Approve user registrations</div>
-                        </a>
-                        <a href="settings.php" class="action-card">
-                            <div class="action-icon">⚙️</div>
-                            <div class="action-title">System Settings</div>
-                            <div class="action-desc">Configure system parameters</div>
-                        </a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -1025,26 +956,6 @@ if (!isset($_SESSION['user_id'])) {
                                     </div>
                                 </div>
                             <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-                <!-- System Stats (Admin Only) -->
-                <?php if ($user_role === 'Admin'): ?>
-                    <div class="section-card">
-                        <div class="section-header">
-                            <h3 class="section-title">System Overview</h3>
-                        </div>
-                        
-                        <div class="quick-stats">
-                            <div class="quick-stat">
-                                <div class="quick-stat-label">Monthly Volume</div>
-                                <div class="quick-stat-value">₱<?= number_format($dashboard_data['total_volume'] ?? 0, 0) ?></div>
-                            </div>
-                            <div class="quick-stat">
-                                <div class="quick-stat-label">Active Farmers</div>
-                                <div class="quick-stat-value"><?= $dashboard_data['total_farmers'] ?? 0 ?></div>
-                            </div>
                         </div>
                     </div>
                 <?php endif; ?>

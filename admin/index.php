@@ -12,19 +12,22 @@ $pending_verifications = [];
 $user_id = $_SESSION['user_id'] ?? null;
 
 try {
-    // Total statistics
+    // Total statistics (no deliveries table - use orders only)
     $stmt = $conn->query("
         SELECT 
-            (SELECT COUNT(*) FROM users) as total_users,
-            (SELECT COUNT(*) FROM users WHERE role = 'Farmer') as total_farmers,
-            (SELECT COUNT(*) FROM users WHERE role = 'Buyer') as total_buyers,
-            (SELECT COUNT(*) FROM orders) as total_orders,
-            (SELECT COUNT(*) FROM orders WHERE order_status = 'Pending') as pending_orders,
-            (SELECT COUNT(*) FROM deliveries WHERE delivery_status = 'Delivering') as in_transit,
-            (SELECT COUNT(*) FROM users u JOIN farmer_profiles f ON u.user_id = f.farmer_id WHERE u.is_verified = 0) as pending_verifications,
-            (SELECT COALESCE(SUM(ci.price * ci.quantity), 0) FROM crops_inventory ci) as total_inventory_value
+            (SELECT COUNT(*) FROM users) AS total_users,
+            (SELECT COUNT(*) FROM users WHERE role = 'Farmer') AS total_farmers,
+            (SELECT COUNT(*) FROM users WHERE role = 'Buyer') AS total_buyers,
+            (SELECT COUNT(*) FROM orders) AS total_orders,
+            (SELECT COUNT(*) FROM orders WHERE order_status = 'Pending') AS pending_orders,
+            (SELECT COUNT(*) FROM orders WHERE order_status = 'Shipped') AS in_transit,
+            (SELECT COUNT(*) FROM farmer_verification WHERE status = 'Pending') AS pending_verifications,
+            (SELECT COALESCE(SUM(ci.price * ci.quantity), 0) FROM crops_inventory ci) AS total_inventory_value
     ");
-    $stats = $stmt->fetch_assoc();
+    if ($stmt && $row = $stmt->fetch_assoc()) {
+        $stats = $row;
+    }
+    if ($stmt) $stmt->close();
     
     // Recent users (last 7 days)
     $stmt = $conn->prepare("
@@ -106,6 +109,7 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
             <div class="nav-title">Management</div>
             <ul class="nav-links">
                 <li><a href="crops.php" class="nav-link"><span class="nav-icon">🌱</span><span>Crop Categories</span></a></li>
+                <li><a href="cooperative.php" class="nav-link"><span class="nav-icon">🤝</span><span>Cooperatives</span></a></li>
                 <li><a href="benchmarking.php" class="nav-link"><span class="nav-icon">💰</span><span>Price Benchmarks</span></a></li>
                 <li><a href="announcements.php" class="nav-link"><span class="nav-icon">📢</span><span>Announcements</span></a></li>
             </ul>
@@ -137,15 +141,17 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
             ?>
 
             <div class="user-info">
-                <div class="user-avatar">
-                    <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
-                        <img src="<?= htmlspecialchars($public_path) ?>"
-                            alt="Profile"
-                            style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
-                    <?php else: ?>
-                        <?= strtoupper(substr($first_name, 0, 1)) ?>
-                    <?php endif; ?>
-                </div>
+                <a href="profile.php" title="View Profile" style="display: inline-block;">
+                    <div class="user-avatar">
+                        <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
+                            <img src="<?= htmlspecialchars($public_path) ?>"
+                                alt="Profile"
+                                style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                        <?php else: ?>
+                            <?= strtoupper(substr($_SESSION['first_name'] ?? 'A', 0, 1)) ?>
+                        <?php endif; ?>
+                    </div>
+                </a>
 
                 <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none; display:inline-block;">Log Out</a>
             </div>
