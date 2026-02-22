@@ -161,14 +161,21 @@ if (isset($_GET['logout'])) {
                 <?php if (count($search_results) > 0): ?>
                     <div class="results-grid">
                         <?php foreach ($search_results as $user): ?>
+                            <?php
+                                $is_admin = ($user['role'] === 'Admin');
+                                $profile_url = $is_admin ? '#' : './user/view_profile.php?id=' . (int) $user['user_id'];
+                            ?>
                             <div class="user-card">
+                                <?php if (!$is_admin): ?>
+                                <a href="<?= htmlspecialchars($profile_url) ?>" class="user-card-link" aria-label="View <?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?> profile">
+                                <?php endif; ?>
                                 <div class="user-card-header">
                                     <div class="user-card-avatar">
                                         <?php if (!empty($user['img_path'])): ?>
                                             <?php
                                                 $user_img_path = '/bantayani/' . trim($user['img_path']);
                                             ?>
-                                            <img src="<?= htmlspecialchars($user_img_path) ?>" 
+                                            <img src="<?= htmlspecialchars($user_img_path) ?>"
                                                  alt="<?= htmlspecialchars($user['first_name']) ?>"
                                                  style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
                                         <?php else: ?>
@@ -182,7 +189,7 @@ if (isset($_GET['logout'])) {
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 <div class="user-card-body">
                                     <?php if (!empty($user['profile_name'])): ?>
                                         <p class="profile-detail">
@@ -190,20 +197,23 @@ if (isset($_GET['logout'])) {
                                             <strong><?= htmlspecialchars($user['profile_name']) ?></strong>
                                         </p>
                                     <?php endif; ?>
-                                    
+
                                     <?php if (!empty($user['location'])): ?>
                                         <p class="profile-detail">
                                             <span class="detail-icon">📍</span>
                                             <?= htmlspecialchars($user['location']) ?>
                                         </p>
                                     <?php endif; ?>
-                                    
+
                                     <p class="profile-detail">
                                         <span class="detail-icon">✉️</span>
                                         <?= htmlspecialchars($user['email']) ?>
                                     </p>
                                 </div>
-                                
+                                <?php if (!$is_admin): ?>
+                                </a>
+                                <?php endif; ?>
+
                                 <div class="user-card-footer">
                                     <?php if ($user['role'] === 'Farmer' && $user_role === 'Buyer'): ?>
                                         <a href="./buyer/marketplace.php" class="view-btn">
@@ -213,10 +223,10 @@ if (isset($_GET['logout'])) {
                                         <a href="./farmer/orders.php" class="view-btn">
                                             View Orders
                                         </a>
-                                    <?php else: ?>
-                                        <button class="view-btn" onclick="alert('Profile view coming soon!')">
+                                    <?php elseif (!$is_admin): ?>
+                                        <a href="<?= htmlspecialchars($profile_url) ?>" class="view-btn">
                                             View Profile
-                                        </button>
+                                        </a>
                                     <?php endif; ?>
                                 </div>
                             </div>

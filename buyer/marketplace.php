@@ -17,10 +17,20 @@ $stmt->fetch();
 $stmt->close();
 
 // Get products (individual farmer inventory)
-$sql = "SELECT ci.inventory_id, c.crop_name, c.unit, ci.price, ci.quantity, f.farm_name
+$sql = "SELECT 
+            ci.inventory_id, 
+            ci.farmer_id,
+            c.crop_name, 
+            c.unit, 
+            ci.price, 
+            ci.quantity, 
+            f.farm_name,
+            u.first_name AS farmer_first_name,
+            u.last_name  AS farmer_last_name
         FROM crops_inventory ci
         JOIN crops c ON ci.crop_id = c.crop_id
         JOIN farmer_profiles f ON ci.farmer_id = f.farmer_id
+        JOIN users u ON ci.farmer_id = u.user_id
         WHERE ci.quantity > 0";
 $result = $conn->query($sql);
 
@@ -121,6 +131,12 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
                     <div class="card">
                         <b><?= htmlspecialchars($row['crop_name']) ?></b>
                         <p>Farm: <?= htmlspecialchars($row['farm_name']) ?></p>
+                        <p>
+                            Farmer: 
+                            <a href="../user/view_profile.php?id=<?= (int) $row['farmer_id'] ?>">
+                                <?= htmlspecialchars(trim($row['farmer_first_name'] . ' ' . $row['farmer_last_name'])) ?>
+                            </a>
+                        </p>
                         <p>Price: ₱<?= number_format($row['price'], 2) ?></p>
                         <p>Available: <?= htmlspecialchars($row['quantity']) ?> <?= htmlspecialchars($row['unit']) ?></p>
                         <a class="btn" href="product.php?id=<?= $row['inventory_id'] ?>">View Details</a>

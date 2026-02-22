@@ -303,6 +303,20 @@ body {
     color: var(--orange);
 }
 
+.user-card-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    margin: -24px -24px 16px -24px;
+    padding: 24px 24px 0 24px;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    cursor: pointer;
+}
+
+.user-card-link:hover {
+    color: inherit;
+}
+
 .user-card-body {
     margin-bottom: 16px;
 }
