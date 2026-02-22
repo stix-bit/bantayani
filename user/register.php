@@ -66,8 +66,8 @@ function validateRegistrationInput(array $data, ?array $profileImage, ?array $fa
         $errors[] = 'Please set and confirm your password.';
     } elseif ($password !== $confirmPassword) {
         $errors[] = 'Passwords do not match.';
-    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d]).{9,}$/', $password)) {
-        $errors[] = 'Password must be more than 8 characters and include lowercase, uppercase, number, and symbol.';
+    } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$/', $password)) {
+        $errors[] = 'Password must be at least 8 characters and include lowercase, uppercase, and number.';
     }
 
     if (!$profileImage || $profileImage['error'] === UPLOAD_ERR_NO_FILE) {
@@ -106,6 +106,14 @@ function validateRegistrationInput(array $data, ?array $profileImage, ?array $fa
     if ($activeRole === 'Farmer') {
         if (trim($data['farm_name'] ?? '') === '' || trim($data['farm_location'] ?? '') === '') {
             $errors[] = 'Farm name and farm location are required for farmers.';
+        }
+
+        $valid_regions = ['', 'Manila', 'Nueva Ecija', 'Bulacan', 'Batangas', 'Laguna',
+                          'Quezon', 'Cavite', 'Rizal', 'Camarines Sur', 'Cebu', 'Davao',
+                          'Mindanao', 'Luzon', 'Visayas'];
+        $region = trim($data['region'] ?? '');
+        if ($region !== '' && !in_array($region, $valid_regions, true)) {
+            $errors[] = 'Please choose a valid region.';
         }
 
         if ($farmImage && $farmImage['error'] !== UPLOAD_ERR_OK && $farmImage['error'] !== UPLOAD_ERR_NO_FILE) {
@@ -192,8 +200,9 @@ function createUserWithProfiles(
             $companyBuyerStmt->close();
         }
     } else {
-        $farmerStmt = $conn->prepare('INSERT INTO farmer_profiles (farmer_id, farm_name, farm_location, farm_img_path) VALUES (?, ?, ?, ?)');
-        $farmerStmt->bind_param('isss', $userId, $data['farm_name'], $data['farm_location'], $farmImagePath);
+        $region = trim($data['region'] ?? '') ?: null;
+        $farmerStmt = $conn->prepare('INSERT INTO farmer_profiles (farmer_id, farm_name, farm_location, region, farm_img_path) VALUES (?, ?, ?, ?, ?)');
+        $farmerStmt->bind_param('issss', $userId, $data['farm_name'], $data['farm_location'], $region, $farmImagePath);
         $farmerStmt->execute();
         $farmerStmt->close();
     }
@@ -242,6 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $taxId = trim($_POST['tax_id'] ?? '');
     $farmName = trim($_POST['farm_name'] ?? '');
     $farmLocation = trim($_POST['farm_location'] ?? '');
+    $region = trim($_POST['region'] ?? '');
     $profileImage = $_FILES['profile_image'] ?? null;
     $farmImage = $_FILES['farm_image'] ?? null;
 
@@ -262,6 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'tax_id' => $taxId,
         'farm_name' => $farmName,
         'farm_location' => $farmLocation,
+        'region' => $region,
     ];
 
     $errors = array_merge($errors, validateRegistrationInput($formData, $profileImage, $farmImage, $activeRole));
@@ -553,16 +564,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         type="password"
                         id="password"
                         name="password"
-                        minlength="9"
-                        pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{9,}"
-                        title="At least 9 chars with lowercase, uppercase, number, and symbol"
+                        minlength="8"
+                        pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
+                        title="At least 8 characters with lowercase, uppercase, and number"
                         required
                 />
-                <p class="field-note">Use 9+ characters with lowercase, uppercase, number, and symbol.</p>
+                <p class="field-note">Use at least 8 characters with lowercase, uppercase, and number.</p>
             </div>
             <div>
                 <label for="confirm_password">Confirm Password</label>
-                <input type="password" id="confirm_password" name="confirm_password" minlength="9" required />
+                <input type="password" id="confirm_password" name="confirm_password" minlength="8" required />
             </div>
         </div>
 
@@ -632,6 +643,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div>
                         <label for="farm_location">Farm Location</label>
                         <input type="text" id="farm_location" name="farm_location" value="<?= htmlspecialchars($_POST['farm_location'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" required />
+                    </div>
+                    <div>
+                        <label for="region">Region</label>
+                        <select id="region" name="region">
+                            <option value="">-- Select region (optional) --</option>
+                            <option value="Manila" <?= ($_POST['region'] ?? '') === 'Manila' ? 'selected' : '' ?>>Manila</option>
+                            <option value="Nueva Ecija" <?= ($_POST['region'] ?? '') === 'Nueva Ecija' ? 'selected' : '' ?>>Nueva Ecija</option>
+                            <option value="Bulacan" <?= ($_POST['region'] ?? '') === 'Bulacan' ? 'selected' : '' ?>>Bulacan</option>
+                            <option value="Batangas" <?= ($_POST['region'] ?? '') === 'Batangas' ? 'selected' : '' ?>>Batangas</option>
+                            <option value="Laguna" <?= ($_POST['region'] ?? '') === 'Laguna' ? 'selected' : '' ?>>Laguna</option>
+                            <option value="Quezon" <?= ($_POST['region'] ?? '') === 'Quezon' ? 'selected' : '' ?>>Quezon</option>
+                            <option value="Cavite" <?= ($_POST['region'] ?? '') === 'Cavite' ? 'selected' : '' ?>>Cavite</option>
+                            <option value="Rizal" <?= ($_POST['region'] ?? '') === 'Rizal' ? 'selected' : '' ?>>Rizal</option>
+                            <option value="Camarines Sur" <?= ($_POST['region'] ?? '') === 'Camarines Sur' ? 'selected' : '' ?>>Camarines Sur</option>
+                            <option value="Cebu" <?= ($_POST['region'] ?? '') === 'Cebu' ? 'selected' : '' ?>>Cebu</option>
+                            <option value="Davao" <?= ($_POST['region'] ?? '') === 'Davao' ? 'selected' : '' ?>>Davao</option>
+                            <option value="Mindanao" <?= ($_POST['region'] ?? '') === 'Mindanao' ? 'selected' : '' ?>>Mindanao</option>
+                            <option value="Luzon" <?= ($_POST['region'] ?? '') === 'Luzon' ? 'selected' : '' ?>>Luzon</option>
+                            <option value="Visayas" <?= ($_POST['region'] ?? '') === 'Visayas' ? 'selected' : '' ?>>Visayas</option>
+                        </select>
                     </div>
                 </div>
                 <div class="file-input" style="margin-top: 20px;">

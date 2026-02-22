@@ -878,7 +878,7 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="action-title">Browse Marketplace</div>
                             <div class="action-desc">Find fresh produce</div>
                         </a>
-                        <a href="orders.php" class="action-card">
+                        <a href="./buyer/orders.php" class="action-card">
                             <div class="action-icon">📋</div>
                             <div class="action-title">My Orders</div>
                             <div class="action-desc">Track your purchases</div>
