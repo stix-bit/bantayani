@@ -27,7 +27,7 @@ $query = "
            buyer.email as buyer_email,
            buyer.contact_number as buyer_contact,
            buyer.address as buyer_address,
-           bp.business_name,
+           c.company_name,
            CONCAT(farmer.first_name, ' ', farmer.last_name) as farmer_name,
            farmer.email as farmer_email,
            farmer.contact_number as farmer_contact,
@@ -37,6 +37,8 @@ $query = "
     LEFT JOIN orders o ON i.order_id = o.order_id
     LEFT JOIN users buyer ON i.buyer_id = buyer.user_id
     LEFT JOIN buyer_profiles bp ON i.buyer_id = bp.buyer_id
+    LEFT JOIN company_buyers cb ON cb.buyer_id = bp.buyer_id
+    LEFT JOIN companies c ON c.company_id = cb.company_id
     LEFT JOIN users farmer ON i.farmer_id = farmer.user_id
     LEFT JOIN farmer_profiles fp ON i.farmer_id = fp.farmer_id
     WHERE i.invoice_id = ?
@@ -401,8 +403,8 @@ $stmt->close();
                 <div class="party">
                     <h3>To:</h3>
                     <p><strong><?= htmlspecialchars($invoice['buyer_name']) ?></strong></p>
-                    <?php if (!empty($invoice['business_name'])): ?>
-                        <p><?= htmlspecialchars($invoice['business_name']) ?></p>
+                    <?php if (!empty($invoice['company_name'])): ?>
+                        <p><?= htmlspecialchars($invoice['company_name']) ?></p>
                     <?php endif; ?>
                     <p><?= htmlspecialchars($invoice['buyer_address']) ?></p>
                     <p><?= htmlspecialchars($invoice['buyer_email']) ?></p>
