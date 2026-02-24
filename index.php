@@ -716,12 +716,13 @@ if (!isset($_SESSION['user_id'])) {
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="./farmer/benchmarking.php" class="nav-link">Pricing</a>
-                <!-- <a href="./farmer/profile.php" class="nav-link">Profile</a> -->
+                <a href="announcements.php" class="nav-link">Announcements</a>
             <?php elseif ($user_role === 'Buyer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
                 <a href="search.php" class="nav-link">Farmers</a>
+                <a href="announcements.php" class="nav-link">Announcements</a>
             <?php endif; ?>
         </div>
         
@@ -899,8 +900,11 @@ if (!isset($_SESSION['user_id'])) {
 
             <!-- Right Column -->
             <div>
+                <!-- Announcements Widget -->
+                <?php include 'includes/announcement_widget.php'; ?>
+
                 <!-- Notifications Section -->
-                <div class="section-card">
+                <div class="section-card" style="margin-top: 24px;">
                     <div class="section-header">
                         <h3 class="section-title">Notifications</h3>
                         <a href="notifications.php" class="view-all">View All →</a>
@@ -940,7 +944,7 @@ if (!isset($_SESSION['user_id'])) {
 
                 <!-- Upcoming Harvests (Farmer Only) -->
                 <?php if ($user_role === 'Farmer' && !empty($upcoming_harvests)): ?>
-                    <div class="section-card">
+                    <div class="section-card" style="margin-top: 24px;">
                         <div class="section-header">
                             <h3 class="section-title">Upcoming Harvests</h3>
                             <a href="./farmer/inventory.php" class="view-all">View All →</a>
