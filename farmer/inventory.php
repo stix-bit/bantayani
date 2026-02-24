@@ -75,7 +75,6 @@ $analytics_stmt->close();
 // No output before authentication check
 require_once __DIR__ . '/../includes/auth_helper.php';
 require_login('Farmer');
-require_once '../includes/config.php';
 
 $farmer_id = $_SESSION['user_id'];
 
@@ -621,6 +620,73 @@ if (!empty($due_harvests)) {
                     </div>
                 <?php endif; ?>
             </div>
+            <div class="table-card" style="margin:0; width:100%; box-sizing:border-box; padding:20px;">
+                    <div class="table-header" style="justify-content: space-between; padding: 0 0 12px 0; border-bottom: 1px solid var(--border);">
+                        <h3 style="font-size: 1.1rem; margin: 0;">Weather & Alerts</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="refreshWeather()" class="confirm-btn" style="padding:6px 12px; font-size:0.85rem; background:#1f8a70; color:white; border:none; border-radius:6px; cursor:pointer;">🔄 Refresh</button>
+                            <button onclick="clearAlerts()" class="confirm-btn" style="padding:6px 12px; font-size:0.85rem; background:#ef4444; color:white; border:none; border-radius:6px; cursor:pointer;">✕ Clear</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Weather Display -->
+                    <?php if (!empty($current_weather)): ?>
+                    <div style="padding:12px 0; border-bottom:1px solid var(--border);">
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="text-align: center;">
+                                <div style="font-size:2rem; font-weight:bold; color:#1f8a70;">
+                                    <?= number_format($current_weather['temperature_2m'] ?? 0, 1) ?>°C
+                                </div>
+                                <div style="color:var(--text-light); font-size:0.85rem;">Temperature</div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div style="text-align: center; padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                    <div style="font-size:1rem; font-weight:bold;">
+                                        <?= $current_weather['relative_humidity_2m'] ?? 'N/A' ?>%
+                                    </div>
+                                    <div style="color:var(--text-light); font-size:0.75rem;">Humidity</div>
+                                </div>
+                                <div style="text-align: center; padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                    <div style="font-size:1rem; font-weight:bold;">
+                                        <?= number_format($current_weather['wind_speed_10m'] ?? 0, 1) ?> km/h
+                                    </div>
+                                    <div style="color:var(--text-light); font-size:0.75rem;">Wind</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div style="padding:12px; color:var(--text-light); text-align:center; font-size:0.85rem;">
+                        No weather data. <a href="#" onclick="refreshWeather(); return false;" style="color:#1f8a70; text-decoration:none;">Fetch now</a>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <!-- Weather Alerts -->
+                    <?php if (!empty($weather_alerts)): ?>
+                    <div style="padding-top:12px;">
+                        <h4 style="margin:0 0 8px 0; color:var(--text); font-size:0.95rem;">Alerts</h4>
+                        <?php foreach ($weather_alerts as $alert): ?>
+                            <div style="padding:8px; margin-bottom:6px; border-radius:6px; font-size:0.8rem;
+                                <?php 
+                                    if ($alert['severity'] === 'High') echo 'background:#fef2f2; border-left:3px solid #ef4444;';
+                                    elseif ($alert['severity'] === 'Medium') echo 'background:#fffbeb; border-left:3px solid #f59e0b;';
+                                    else echo 'background:#f0fdf4; border-left:3px solid #10b981;';
+                                ?>">
+                                <div style="font-weight:600; margin-bottom:2px;">
+                                    <?= htmlspecialchars($alert['title']) ?>
+                                </div>
+                                <div style="color:var(--text-light);">
+                                    <?= htmlspecialchars($alert['message']) ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php else: ?>
+                    <div style="padding-top:8px; color:var(--text-light); text-align:center; font-size:0.85rem;">
+                        No alerts ✓
+                    </div>
+                    <?php endif; ?>
+                </div>
 
             <!-- RIGHT: Harvested Crops -->
             <div>
@@ -675,6 +741,28 @@ if (!empty($due_harvests)) {
                     </div>
                 </div>
             </div>
+
+            <div class="table-card" style="margin:0; width:100%; box-sizing:border-box; padding:20px;">
+                    <div class="table-header" style="padding: 0 0 12px 0; border-bottom: 1px solid var(--border); justify-content: center;">
+                        <h3 style="font-size: 1.1rem; margin: 0;">Yield Analytics</h3>
+                    </div>
+                    <div style="padding-top:12px;">
+                        <div style="display: flex; flex-direction: column; gap: 12px; text-align: center;">
+                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= $analytics['total_crops'] ?></div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Harvest Records</div>
+                            </div>
+                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= $analytics['total_quantity'] ?></div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Total Yield</div>
+                            </div>
+                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
+                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= number_format($analytics['avg_yield'],2) ?></div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Avg Yield</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             
             <!-- All Crops Tab Content -->
             <div id="all-crops-tab" class="tab-content active">

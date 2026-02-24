@@ -108,7 +108,8 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
         <div class="nav-section">
             <div class="nav-title">Management</div>
             <ul class="nav-links">
-                <li><a href="crops.php" class="nav-link"><span class="nav-icon">🌱</span><span>Crop Categories</span></a></li>
+                <li><a href="crop_categories.php" class="nav-link"><span class="nav-icon">📁</span><span>Crop Categories</span></a></li>
+                <li><a href="crops.php" class="nav-link"><span class="nav-icon">🌱</span><span>Crops</span></a></li>
                 <li><a href="cooperative.php" class="nav-link"><span class="nav-icon">🤝</span><span>Cooperatives</span></a></li>
                 <li><a href="benchmarking.php" class="nav-link"><span class="nav-icon">💰</span><span>Price Benchmarks</span></a></li>
                 <li><a href="announcements.php" class="nav-link"><span class="nav-icon">📢</span><span>Announcements</span></a></li>

@@ -90,7 +90,8 @@ foreach ($items as $i) {
         <div class="nav-section">
             <div class="nav-title">Management</div>
             <ul class="nav-links">
-                <li><a href="crops.php" class="nav-link">🌱 Crops</a></li>
+                <li><a href="crop_categories.php" class="nav-link"><span class="nav-icon">📁</span><span>Crop Categories</span></a></li>
+                <li><a href="crops.php" class="nav-link"><span class="nav-icon">🌱</span><span>Crops</span></a></li>
                 <li><a href="cooperative.php" class="nav-link">🤝 Cooperatives</a></li>
                 <li><a href="benchmarking.php" class="nav-link">💰 Pricing</a></li>
             </ul>

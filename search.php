@@ -38,7 +38,7 @@ if (!empty($search_query)) {
                 u.img_path,
                 CASE 
                     WHEN u.role = 'Farmer' THEN f.farm_name
-                    WHEN u.role = 'Buyer' THEN c.company_name
+                    WHEN u.role = 'Buyer' THEN co.company_name
                     ELSE NULL
                 END as profile_name,
                 CASE 
@@ -48,12 +48,13 @@ if (!empty($search_query)) {
             FROM users u
             LEFT JOIN farmer_profiles f ON u.user_id = f.farmer_id
             LEFT JOIN buyer_profiles b ON u.user_id = b.buyer_id
-            LEFT JOIN companies c on b.buyer_id = c.buyer_id
+            LEFT JOIN company_buyers c on b.buyer_id = c.buyer_id
+            LEFT JOIN companies co ON c.company_id = co.company_id
             WHERE (u.first_name LIKE ? 
                 OR u.last_name LIKE ? 
                 OR u.email LIKE ?
                 OR f.farm_name LIKE ?
-                OR c.company_name LIKE ?)
+                OR co.company_name LIKE ?)
             AND u.role IN ('Farmer', 'Buyer')
             AND u.user_id != ?
             ORDER BY u.first_name ASC

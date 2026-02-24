@@ -21,7 +21,7 @@ if ($id <= 0) {
 
 $stmt = $conn->prepare("
     SELECT ci.inventory_id, ci.farmer_id, ci.crop_id, ci.quantity, ci.price, ci.harvest_date,
-           c.crop_name, ci.unit,
+           c.crop_name, c.unit,
            f.farm_name
     FROM crops_inventory ci
     JOIN crops c ON ci.crop_id = c.crop_id
@@ -466,7 +466,10 @@ $stmt->close();
 
                 <form method="post" action="cart.php" class="add-to-cart-form">
                     <input type="hidden" name="inventory_id" value="<?= (int) $row['inventory_id'] ?>">
-                    <input type="number" name="qty" min="1" max="<?= (int) $row['quantity'] ?>" value="1" required>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="number" name="qty" min="1" max="<?= (int) $row['quantity'] ?>" value="1" required>
+                        <span><?= htmlspecialchars($row['unit']) ?></span>
+                    </div>
                     <button type="submit" class="btn">Add to Cart</button>
                 </form>
             </div>
