@@ -27,12 +27,15 @@ $sql = "SELECT
             f.farm_name,
             u.first_name AS farmer_first_name,
             u.last_name  AS farmer_last_name,
-            GROUP_CONCAT(ci_img.image_path ORDER BY ci_img.is_primary DESC) as images
+            GROUP_CONCAT(ci_img.image_path ORDER BY ci_img.is_primary DESC) as images,
+            ROUND(AVG(r.rating),1) as avg_rating,
+            COUNT(r.rating_id) as total_ratings
         FROM crops_inventory ci
         JOIN crops c ON ci.crop_id = c.crop_id
         JOIN farmer_profiles f ON ci.farmer_id = f.farmer_id
         JOIN users u ON ci.farmer_id = u.user_id
         LEFT JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
+        LEFT JOIN ratings r ON ci.inventory_id = r.inventory_id
         WHERE ci.quantity > 0
         GROUP BY ci.inventory_id";
 $result = $conn->query($sql);
@@ -185,6 +188,14 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
                         </p>
                         <p>Price: ₱<?= number_format($row['price'], 2) ?></p>
                         <p>Available: <?= htmlspecialchars($row['quantity']) ?> <?= htmlspecialchars($row['unit']) ?></p>
+                        <p>
+                            Rating:
+                            <?php if ($row['avg_rating']): ?>
+                                ⭐ <?= $row['avg_rating'] ?> / 5 (<?= $row['total_ratings'] ?> reviews)
+                            <?php else: ?>
+                                No ratings yet
+                            <?php endif; ?>
+                        </p>
                         <a class="btn" href="product.php?id=<?= $row['inventory_id'] ?>">View Details</a>
                     </div>
                 <?php } ?>
