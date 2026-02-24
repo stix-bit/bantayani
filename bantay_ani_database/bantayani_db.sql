@@ -62,21 +62,16 @@ DEFAULT CHARACTER SET = utf8;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `bantayani_db`.`companies` (
   `company_id` INT(11) NOT NULL AUTO_INCREMENT,
-  `buyer_id` INT(11) NOT NULL,
   `company_name` VARCHAR(100) NOT NULL,
   `company_address` VARCHAR(255) NULL DEFAULT NULL,
   `contact_person` VARCHAR(100) NULL DEFAULT NULL,
   `tax_id` VARCHAR(50) NULL DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
   PRIMARY KEY (`company_id`),
-  INDEX `fk_companies_buyer_idx` (`buyer_id` ASC) ,
-  CONSTRAINT `fk_companies_buyer`
-    FOREIGN KEY (`buyer_id`)
-    REFERENCES `bantayani_db`.`buyer_profiles` (`buyer_id`)
-    ON DELETE CASCADE
-    ON UPDATE CASCADE)
+  UNIQUE INDEX `company_name_UNIQUE` (`company_name` ASC),
+  UNIQUE INDEX `tax_id_UNIQUE` (`tax_id` ASC))
 ENGINE = InnoDB
-AUTO_INCREMENT = 2
+AUTO_INCREMENT = 1
 DEFAULT CHARACTER SET = utf8;
 
 
@@ -106,13 +101,32 @@ DEFAULT CHARACTER SET = utf8;
 
 
 -- -----------------------------------------------------
+-- Table `bantayani_db`.`crop_categories`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`crop_categories` (
+  `category_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `category_name` VARCHAR(100) NOT NULL,
+  `display_order` INT(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`category_id`))
+ENGINE = InnoDB
+AUTO_INCREMENT = 1
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
 -- Table `bantayani_db`.`crops`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `bantayani_db`.`crops` (
   `crop_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `category_id` INT(11) NOT NULL DEFAULT 8,
   `crop_name` VARCHAR(45) NOT NULL,
-  `unit` ENUM('kg', 'g', 'pieces') NOT NULL,
-  PRIMARY KEY (`crop_id`))
+  PRIMARY KEY (`crop_id`),
+  INDEX `fk_crops_crop_categories_idx` (`category_id` ASC),
+  CONSTRAINT `fk_crops_crop_categories`
+    FOREIGN KEY (`category_id`)
+    REFERENCES `bantayani_db`.`crop_categories` (`category_id`)
+    ON DELETE RESTRICT
+    ON UPDATE CASCADE)
 ENGINE = InnoDB
 AUTO_INCREMENT = 2
 DEFAULT CHARACTER SET = utf8;
@@ -125,6 +139,7 @@ CREATE TABLE IF NOT EXISTS `bantayani_db`.`cooperative_pools` (
   `pool_id` INT(11) NOT NULL AUTO_INCREMENT,
   `crop_id` INT(11) NOT NULL,
   `total_quantity` DECIMAL(10,2) NULL DEFAULT NULL,
+  `unit_price` DECIMAL(10,2) NULL DEFAULT NULL,
   `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP(),
   PRIMARY KEY (`pool_id`),
   INDEX `fk_cooperative_pools_crops1_idx` (`crop_id` ASC) ,
@@ -190,6 +205,7 @@ CREATE TABLE IF NOT EXISTS `bantayani_db`.`crops_inventory` (
   `farmer_id` INT(11) NOT NULL,
   `crop_id` INT(11) NOT NULL,
   `quantity` DECIMAL(10,2) NULL DEFAULT NULL,
+  `unit` ENUM('kg', 'g', 'pieces', 'sack', 'bundle') NOT NULL DEFAULT 'kg',
   `harvest_date` DATE NULL DEFAULT NULL,
   `harvest_status` ENUM('Scheduled', 'Confirmed', 'Cancelled') NOT NULL DEFAULT 'Scheduled',
   `harvest_confirmed_at` DATETIME NULL DEFAULT NULL,
@@ -212,6 +228,26 @@ CREATE TABLE IF NOT EXISTS `bantayani_db`.`crops_inventory` (
     ON UPDATE CASCADE)
 ENGINE = InnoDB
 AUTO_INCREMENT = 2
+DEFAULT CHARACTER SET = utf8;
+
+
+-- -----------------------------------------------------
+-- Table `bantayani_db`.`crop_images`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `bantayani_db`.`crop_images` (
+  `image_id` INT(11) NOT NULL AUTO_INCREMENT,
+  `inventory_id` INT(11) NOT NULL,
+  `image_path` VARCHAR(255) NOT NULL,
+  `is_primary` TINYINT(1) NOT NULL DEFAULT 0,
+  `uploaded_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+  PRIMARY KEY (`image_id`),
+  INDEX `fk_crop_images_crops_inventory1_idx` (`inventory_id` ASC),
+  CONSTRAINT `fk_crop_images_crops_inventory1`
+    FOREIGN KEY (`inventory_id`)
+    REFERENCES `bantayani_db`.`crops_inventory` (`inventory_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE)
+ENGINE = InnoDB
 DEFAULT CHARACTER SET = utf8;
 
 
@@ -296,6 +332,7 @@ CREATE TABLE IF NOT EXISTS `bantayani_db`.`order_items` (
   `order_id` INT(11) NOT NULL,
   `inventory_id` INT(11) NULL DEFAULT NULL,
   `pool_id` INT(11) NULL DEFAULT NULL,
+  `quantity` DECIMAL(10,2) NOT NULL DEFAULT 1,
   PRIMARY KEY (`order_item_id`),
   INDEX `fk_order_items_orders1_idx` (`order_id` ASC) ,
   INDEX `fk_order_items_crops_inventory1_idx` (`inventory_id` ASC) ,
@@ -402,6 +439,12 @@ AUTO_INCREMENT = 7
 DEFAULT CHARACTER SET = utf8;
 
 
+-- Sample weather alerts data
+INSERT INTO weather_alerts (title, message, severity) VALUES
+('Heavy Rain Warning', 'Heavy rainfall expected. Consider early harvest.', 'High'),
+('Hot Weather', 'High temperature may affect crops. Water regularly.', 'Medium');
+
+
 -- -----------------------------------------------------
 -- Table `bantayani_db`.`weather_data`
 -- -----------------------------------------------------
@@ -420,6 +463,74 @@ CREATE TABLE IF NOT EXISTS `bantayani_db`.`weather_data` (
 ENGINE = InnoDB
 AUTO_INCREMENT = 22
 DEFAULT CHARACTER SET = utf8;
+
+-- Crop Categories Data
+INSERT INTO crop_categories (category_id, category_name, display_order) VALUES
+(1, 'Cereals & Grains', 1),
+(2, 'Fruits', 2),
+(3, 'Vegetables', 3),
+(4, 'Root Crops', 4),
+(5, 'Legumes', 5),
+(6, 'Plantation / Industrial Crops', 6),
+(7, 'Herbs & Spices', 7),
+(8, 'Other Local Crops', 8);
+
+
+-- Cereals & Grains Data
+INSERT INTO crops (category_id, crop_name) VALUES
+(1, 'Rice'),
+(1, 'Corn'),
+(1, 'Millet'),
+(1, 'Other local grains'),
+
+-- Fruits Data
+(2, 'Banana'),
+(2, 'Mango'),
+(2, 'Pineapple'),
+(2, 'Papaya'),
+(2, 'Calamansi'),
+(2, 'Durian'),
+(2, 'Lanzones'),
+(2, 'Other fruits'),
+
+-- Vegetables Data
+(3, 'Leafy vegetables'),
+(3, 'Fruiting vegetables'),
+(3, 'Root vegetables'),
+
+-- Root Crops Data
+(4, 'Cassava'),
+(4, 'Sweet potato'),
+(4, 'Taro'),
+(4, 'Ube'),
+(4, 'Yam variants'),
+
+-- Legumes Data
+(5, 'Mung bean'),
+(5, 'Peanut'),
+(5, 'Soybean'),
+(5, 'Other beans'),
+
+-- Plantation / Industrial Crops Data
+(6, 'Coconut'),
+(6, 'Sugarcane'),
+(6, 'Coffee'),
+(6, 'Rubber'),
+(6, 'Abaca'),
+
+-- Herbs & Spices Data
+(7, 'Ginger'),
+(7, 'Garlic'),
+(7, 'Onion'),
+(7, 'Chili'),
+(7, 'Other herbs'),
+
+-- Other Local Crops Data
+(8, 'Farmers can specify if not listed above');
+
+
+-- Additional indexes for performance optimization
+CREATE INDEX idx_crops_inventory_farmer_harvestdate_status ON crops_inventory (farmer_id, harvest_date, harvest_status);
 
 
 SET SQL_MODE=@OLD_SQL_MODE;

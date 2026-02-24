@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_pool'])) {
 
 // Load all pools (any farmer can see and contribute to any pool)
 $select_extras = ($has_unit_price ? ", p.unit_price" : "");
-$sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, c.unit $select_extras
+$sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, p.unit $select_extras
         FROM cooperative_pools p
         JOIN crops c ON p.crop_id = c.crop_id
         ORDER BY c.crop_name, p.pool_id";
@@ -128,7 +128,7 @@ $stmt->close();
 
 // My inventory (for contribution form) - all my crops
 $stmt = $conn->prepare("
-    SELECT ci.inventory_id, ci.crop_id, ci.quantity, c.crop_name, c.unit
+    SELECT ci.inventory_id, ci.crop_id, ci.quantity, c.crop_name, ci.unit
     FROM crops_inventory ci
     JOIN crops c ON ci.crop_id = c.crop_id
     WHERE ci.farmer_id = ? AND ci.quantity > 0
@@ -139,7 +139,7 @@ $stmt->execute();
 $my_inventory = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-$crops = $conn->query("SELECT crop_id, crop_name, unit FROM crops ORDER BY crop_name")->fetch_all(MYSQLI_ASSOC);
+$crops = $conn->query("SELECT crop_id, crop_name FROM crops ORDER BY crop_name")->fetch_all(MYSQLI_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en">

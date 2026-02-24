@@ -808,6 +808,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
         </div>
 
+        <!-- My Crops Showcase -->
+        <div class="card">
+            <h2>My Crops</h2>
+            <?php 
+            // Fetch farmer's crops with images
+            $crops_stmt = $conn->prepare("
+                SELECT ci.inventory_id, ci.crop_id, ci.quantity, ci.harvest_date, ci.price, c.crop_name, ci.unit,
+                       GROUP_CONCAT(ci_img.image_path ORDER BY ci_img.is_primary DESC) as images,
+                       GROUP_CONCAT(ci_img.image_id ORDER BY ci_img.is_primary DESC) as image_ids
+                FROM crops_inventory ci
+                JOIN crops c ON ci.crop_id = c.crop_id
+                LEFT JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
+                WHERE ci.farmer_id = ?
+                GROUP BY ci.inventory_id
+                ORDER BY ci.created_at DESC
+            ");
+            $crops_stmt->bind_param("i", $user_id);
+            $crops_stmt->execute();
+            $crops_result = $crops_stmt->get_result();
+            $crops = $crops_result->fetch_all(MYSQLI_ASSOC);
+            $crops_stmt->close();
+            ?>
+            
+            <?php if (!empty($crops)): ?>
+                <div class="crops-showcase" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 16px;">
+                    <?php foreach ($crops as $crop): ?>
+                        <?php 
+                        $images = $crop['images'] ? explode(',', $crop['images']) : [];
+                        $primary_image = !empty($images) ? $images[0] : null;
+                        ?>
+                        <div class="crop-card" style="border: 1px solid #e4e7eb; border-radius: 12px; padding: 12px; text-align: center;">
+                            <?php if ($primary_image): ?>
+                                <div style="width: 100%; height: 100px; margin-bottom: 8px; overflow: hidden; border-radius: 8px;">
+                                    <img src="../<?= htmlspecialchars($primary_image) ?>" 
+                                         alt="<?= htmlspecialchars($crop['crop_name']) ?>" 
+                                         style="width: 100%; height: 100%; object-fit: cover;">
+                                </div>
+                            <?php else: ?>
+                                <div style="width: 100%; height: 100px; background: #f9fafb; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; color: #666;">
+                                    <i class="fa-solid fa-image" style="font-size: 1.5rem;"></i>
+                                </div>
+                            <?php endif; ?>
+                            <h4 style="margin: 0 0 4px 0; color: var(--text); font-size: 0.95rem;"><?= htmlspecialchars($crop['crop_name']) ?></h4>
+                            <p style="margin: 2px 0; font-size: 0.85rem; color: var(--text-light);">
+                                <?= htmlspecialchars($crop['quantity']) ?> <?= htmlspecialchars($crop['unit']) ?>
+                            </p>
+                            <p style="margin: 2px 0; font-size: 0.85rem; color: var(--green); font-weight: 600;">
+                                ₱<?= number_format($crop['price'], 2) ?>/<?= htmlspecialchars($crop['unit']) ?>
+                            </p>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <div style="text-align: center; margin-top: 16px;">
+                    <a href="inventory.php" class="btn" style="display: inline-block; padding: 8px 16px; background: var(--green); color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">Manage Inventory</a>
+                </div>
+            <?php else: ?>
+                <div style="text-align: center; padding: 40px; color: var(--text-light);">
+                    <i class="fa-solid fa-seedling" style="font-size: 2rem; margin-bottom: 8px;"></i>
+                    <p>No crops added yet</p>
+                    <a href="inventory.php" class="btn" style="display: inline-block; margin-top: 12px; padding: 8px 16px; background: var(--green); color: white; text-decoration: none; border-radius: 6px; font-size: 0.9rem;">Add Your First Crop</a>
+                </div>
+            <?php endif; ?>
+        </div>
+
         <!-- Verification Documents Card -->
         <div class="card">
             <h2>Verification Documents</h2>

@@ -85,7 +85,7 @@ if ($role === 'Farmer') {
 
     // Individual products
     $stmt = $conn->prepare("
-        SELECT ci.inventory_id, c.crop_name, c.unit, ci.price, ci.quantity
+        SELECT ci.inventory_id, c.crop_name, ci.unit, ci.price, ci.quantity
         FROM crops_inventory ci
         JOIN crops c ON ci.crop_id = c.crop_id
         WHERE ci.farmer_id = ? AND ci.quantity > 0

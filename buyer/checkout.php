@@ -183,7 +183,7 @@ $stmt->close();
 
                 if (is_string($id) && strpos($id, 'p_') === 0) {
                     $pool_id = (int)substr($id, 2);
-                    $stmt = $conn->prepare("SELECT c.crop_name, c.unit" . ($has_pool_price ? ", p.unit_price" : "") . " FROM cooperative_pools p JOIN crops c ON p.crop_id = c.crop_id WHERE p.pool_id = ?");
+                    $stmt = $conn->prepare("SELECT c.crop_name, p.unit" . ($has_pool_price ? ", p.unit_price" : "") . " FROM cooperative_pools p JOIN crops c ON p.crop_id = c.crop_id WHERE p.pool_id = ?");
                     $stmt->bind_param("i", $pool_id);
                     $stmt->execute();
                     $row = $stmt->get_result()->fetch_assoc();
@@ -205,7 +205,7 @@ $stmt->close();
             <?php
                 } else {
                     $inv_id = (int)$id;
-                    $stmt = $conn->prepare("SELECT ci.price, c.crop_name, c.unit FROM crops_inventory ci JOIN crops c ON ci.crop_id = c.crop_id WHERE ci.inventory_id = ?");
+                    $stmt = $conn->prepare("SELECT ci.price, c.crop_name, ci.unit FROM crops_inventory ci JOIN crops c ON ci.crop_id = c.crop_id WHERE ci.inventory_id = ?");
                     $stmt->bind_param("i", $inv_id);
                     $stmt->execute();
                     $row = $stmt->get_result()->fetch_assoc();

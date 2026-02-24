@@ -21,17 +21,20 @@ $sql = "SELECT
             ci.inventory_id, 
             ci.farmer_id,
             c.crop_name, 
-            c.unit, 
+            ci.unit, 
             ci.price, 
             ci.quantity, 
             f.farm_name,
             u.first_name AS farmer_first_name,
-            u.last_name  AS farmer_last_name
+            u.last_name  AS farmer_last_name,
+            GROUP_CONCAT(ci_img.image_path ORDER BY ci_img.is_primary DESC) as images
         FROM crops_inventory ci
         JOIN crops c ON ci.crop_id = c.crop_id
         JOIN farmer_profiles f ON ci.farmer_id = f.farmer_id
         JOIN users u ON ci.farmer_id = u.user_id
-        WHERE ci.quantity > 0";
+        LEFT JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
+        WHERE ci.quantity > 0
+        GROUP BY ci.inventory_id";
 $result = $conn->query($sql);
 
 // Check if cooperative_pools has unit_price (from migration)
@@ -40,7 +43,7 @@ $cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
 if ($cols && $cols->num_rows > 0) $has_pool_price = true;
 
 // Get cooperative pools (large volume – any buyer can see and order)
-$pool_sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, c.unit" . ($has_pool_price ? ", p.unit_price" : "") . "
+$pool_sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, p.unit" . ($has_pool_price ? ", p.unit_price" : "") . "
              FROM cooperative_pools p
              JOIN crops c ON p.crop_id = c.crop_id
              WHERE (p.total_quantity IS NULL OR p.total_quantity > 0)
@@ -111,6 +114,9 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
             <div class="marketplace" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;">
                 <?php foreach ($pools as $p): ?>
                 <div class="card" style="border-left: 4px solid #1f8a70;">
+                    <div style="width: 100%; height: 120px; background: #f9fafb; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; color: #666;">
+                        <i class="fa-solid fa-users" style="font-size: 2rem;"></i>
+                    </div>
                     <b><?= htmlspecialchars($p['crop_name']) ?></b>
                     <p style="margin: 6px 0;">Cooperative pool</p>
                     <?php if ($has_pool_price && isset($p['unit_price']) && $p['unit_price'] != null): ?>
@@ -129,6 +135,21 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
             <?php if ($result->num_rows > 0) { ?>
                 <?php while ($row = $result->fetch_assoc()) { ?>
                     <div class="card">
+                        <?php 
+                        $images = $row['images'] ? explode(',', $row['images']) : [];
+                        $primary_image = !empty($images) ? $images[0] : null;
+                        ?>
+                        <?php if ($primary_image): ?>
+                            <div style="width: 100%; height: 120px; margin-bottom: 12px; overflow: hidden; border-radius: 8px;">
+                                <img src="../<?= htmlspecialchars($primary_image) ?>" 
+                                     alt="<?= htmlspecialchars($row['crop_name']) ?>" 
+                                     style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
+                        <?php else: ?>
+                            <div style="width: 100%; height: 120px; background: #f9fafb; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; color: #666;">
+                                <i class="fa-solid fa-image" style="font-size: 2rem;"></i>
+                            </div>
+                        <?php endif; ?>
                         <b><?= htmlspecialchars($row['crop_name']) ?></b>
                         <p>Farm: <?= htmlspecialchars($row['farm_name']) ?></p>
                         <p>

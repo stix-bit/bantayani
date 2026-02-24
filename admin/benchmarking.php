@@ -12,7 +12,7 @@ $sql = "
 SELECT
     c.crop_id,
     c.crop_name,
-    c.unit,
+    ci.unit,
     COUNT(oi.order_item_id) AS total_sales,
     ROUND(AVG(ci.price), 2) AS avg_price,
     MIN(ci.price) AS min_price,

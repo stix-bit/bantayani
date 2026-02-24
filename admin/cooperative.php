@@ -29,7 +29,7 @@ if (isset($_POST['action'], $_POST['pool_id'])) {
 
 // Fetch all cooperative pools with member count
 $select_extras = ($has_unit_price ? ", p.unit_price" : "");
-$sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, p.created_at, c.crop_name, c.unit $select_extras,
+$sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, p.created_at, c.crop_name, p.unit $select_extras,
         (SELECT COUNT(DISTINCT farmer_id) FROM cooperative_members WHERE pool_id = p.pool_id) AS member_count,
         (SELECT COALESCE(SUM(quantity_contributed), 0) FROM cooperative_members WHERE pool_id = p.pool_id) AS total_contributed
         FROM cooperative_pools p

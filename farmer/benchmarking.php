@@ -13,7 +13,7 @@ $sql = "
 SELECT 
     c.crop_id,
     c.crop_name,
-    c.unit,
+    ci.unit,
     ROUND(AVG(ci.price),2) AS market_avg,
     MIN(ci.price) AS market_min,
     MAX(ci.price) AS market_max,

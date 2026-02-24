@@ -109,89 +109,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['harvest_action'])) {
 
 require_once __DIR__ . '/../includes/dynamic_pricing.php';
 
-// Handle Add/Edit/Delete actions
+// Handle Add/Edit/Delete actions - redirect to separate files
 if (isset($_POST['action'])) {
     if ($_POST['action'] === 'add') {
-    $crop_id = (int)($_POST['crop_id'] ?? 0);
-    if ($crop_id <= 0) {
-        $crop_name = trim($_POST['crop_name'] ?? '');
-        if ($crop_name !== '') {
-            $lookup = $conn->prepare('SELECT crop_id FROM crops WHERE LOWER(crop_name) = LOWER(?) LIMIT 1');
-            $lookup->bind_param('s', $crop_name);
-            $lookup->execute();
-            $lookup->bind_result($crop_id);
-            $lookup->fetch();
-            $lookup->close();
-            $crop_id = (int)$crop_id;
-        }
+        header('Location: crop_add.php');
+        exit;
     }
-    $quantity = $_POST['quantity'];
-    $harvest_date = $_POST['harvest_date'];
-    $price = isset($_POST['price']) ? (float)$_POST['price'] : 0;
-
-    if ($crop_id <= 0) {
-        $errors[] = 'Please select a valid crop.';
-    }
-
-    // Dynamic pricing: seller must be within allowed range
-    if ($crop_id > 0 && empty($errors)) {
-        $validation = validatePriceInRange($conn, $crop_id, $price);
-        if (!$validation['valid']) {
-            $errors[] = $validation['message'];
-        }
-    }
-
-    // Check if farmer already has this crop
-    $check = $conn->prepare("SELECT inventory_id FROM crops_inventory WHERE farmer_id=? AND crop_id=?");
-    $check->bind_param("ii", $farmer_id, $crop_id);
-    $check->execute();
-    $check->store_result();
-
-    if (empty($errors) && $check->num_rows > 0) {
-        $errors[] = "You already have this crop in your inventory. Please edit it instead.";
-    } else if (empty($errors)) {
-        $stmt = $conn->prepare("INSERT INTO crops_inventory (farmer_id, crop_id, quantity, harvest_date, price) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("iidsd", $farmer_id, $crop_id, $quantity, $harvest_date, $price);
-        $stmt->execute();
-        $stmt->close();
-        $_SESSION['message'] = 'Crop added successfully!';
-    }
-    $check->close();
-}
-
+    
     if ($_POST['action'] === 'edit') {
-        $inventory_id = $_POST['inventory_id'];
-        $crop_id = (int)($_POST['crop_id'] ?? 0);
-        if ($crop_id <= 0) {
-            $crop_name = trim($_POST['crop_name'] ?? '');
-            if ($crop_name !== '') {
-                $lookup = $conn->prepare('SELECT crop_id FROM crops WHERE LOWER(crop_name) = LOWER(?) LIMIT 1');
-                $lookup->bind_param('s', $crop_name);
-                $lookup->execute();
-                $lookup->bind_result($crop_id);
-                $lookup->fetch();
-                $lookup->close();
-                $crop_id = (int)$crop_id;
-            }
-        }
-        $quantity = $_POST['quantity'];
-        $harvest_date = $_POST['harvest_date'];
-        $price = isset($_POST['price']) ? (float)$_POST['price'] : 0;
-
-        if ($crop_id > 0) {
-            $validation = validatePriceInRange($conn, $crop_id, $price);
-            if (!$validation['valid']) {
-                $errors[] = $validation['message'];
-            } else {
-                $stmt = $conn->prepare("UPDATE crops_inventory SET crop_id = ?, quantity = ?, harvest_date = ?, price = ? WHERE inventory_id = ? AND farmer_id = ?");
-                $stmt->bind_param("idsdii", $crop_id, $quantity, $harvest_date, $price, $inventory_id, $farmer_id);
-                $stmt->execute();
-                $stmt->close();
-                $_SESSION['message'] = 'Crop updated successfully!';
-            }
-        } else {
-            $errors[] = 'Please select a valid crop.';
-        }
+        $inventory_id = $_POST['inventory_id'] ?? 0;
+        header('Location: crop_edit.php?id=' . $inventory_id);
+        exit;
     }
 
     if ($_POST['action'] === 'delete') {
@@ -201,27 +129,28 @@ if (isset($_POST['action'])) {
         $stmt->execute();
         $stmt->close();
         $_SESSION['message'] = 'Crop deleted successfully!';
-    }
-
-    if (empty($errors)) {
         header("Location: inventory.php");
         exit;
     }
 }
 
 // Fetch all crops
-$crops_stmt = $conn->query("SELECT crop_id, crop_name, unit FROM crops ORDER BY crop_name ASC");
+$crops_stmt = $conn->query("SELECT crop_id, crop_name FROM crops ORDER BY crop_name ASC");
 $crops = $crops_stmt->fetch_all(MYSQLI_ASSOC);
 
 // Dynamic pricing: allowed range per crop (for modals)
 $price_ranges_by_crop = getAllCropsDynamicPriceRanges($conn);
 
-// Fetch farmer inventory
+// Fetch farmer inventory with images
 $stmt = $conn->prepare("
-    SELECT ci.inventory_id, ci.crop_id, ci.quantity, ci.harvest_date, ci.price, c.crop_name, c.unit
+    SELECT ci.inventory_id, ci.crop_id, ci.quantity, ci.harvest_date, ci.price, c.crop_name, ci.unit,
+           GROUP_CONCAT(ci_img.image_path ORDER BY ci_img.is_primary DESC) as images,
+           GROUP_CONCAT(ci_img.image_id ORDER BY ci_img.is_primary DESC) as image_ids
     FROM crops_inventory ci
     JOIN crops c ON ci.crop_id = c.crop_id
+    LEFT JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
     WHERE ci.farmer_id = ?
+    GROUP BY ci.inventory_id
     ORDER BY ci.created_at DESC
 ");
 $stmt->bind_param("i", $farmer_id);
@@ -229,21 +158,33 @@ $stmt->execute();
 $result = $stmt->get_result();
 $inventory = $result->fetch_all(MYSQLI_ASSOC);
 
-// Fetch due harvest schedules (today or earlier) that are still scheduled
+// Fetch crops that haven't been harvested yet (all scheduled crops)
 $due_stmt = $conn->prepare("
-    SELECT ci.inventory_id, ci.harvest_date, ci.quantity, c.crop_name, c.unit
+    SELECT ci.inventory_id, ci.harvest_date, ci.quantity, c.crop_name, ci.unit
     FROM crops_inventory ci
     JOIN crops c ON ci.crop_id = c.crop_id
     WHERE ci.farmer_id = ?
-      AND ci.harvest_date IS NOT NULL
-      AND ci.harvest_date <= CURDATE()
       AND (ci.harvest_status IS NULL OR ci.harvest_status = 'Scheduled')
-    ORDER BY ci.harvest_date ASC
+    ORDER BY ci.harvest_date ASC, ci.created_at DESC
 ");
 $due_stmt->bind_param('i', $farmer_id);
 $due_stmt->execute();
 $due_harvests = $due_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $due_stmt->close();
+
+// Fetch harvested crops
+$harvested_stmt = $conn->prepare("
+    SELECT ci.inventory_id, ci.harvest_date, ci.quantity, c.crop_name, ci.unit, ci.harvest_confirmed_at
+    FROM crops_inventory ci
+    JOIN crops c ON ci.crop_id = c.crop_id
+    WHERE ci.farmer_id = ?
+      AND ci.harvest_status = 'Confirmed'
+    ORDER BY ci.harvest_confirmed_at DESC
+");
+$harvested_stmt->bind_param('i', $farmer_id);
+$harvested_stmt->execute();
+$harvested_crops = $harvested_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$harvested_stmt->close();
 
 // Mark notifications as seen (best-effort)
 if (!empty($due_harvests)) {
@@ -349,6 +290,141 @@ if (!empty($due_harvests)) {
 
         /* Spacing for analytics panel */
         .table-card > div { gap: 50px; font-size:1rem; }
+
+        /* Crop Images Styles */
+        .crop-images-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .crop-image-item {
+            position: relative;
+            display: inline-block;
+        }
+        .crop-image-item.primary img {
+            border: 2px solid #f28705;
+        }
+        .image-actions {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            display: flex;
+            gap: 2px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 4px;
+            padding: 2px;
+        }
+        .image-actions .icon-btn {
+            font-size: 0.8rem;
+            padding: 2px;
+        }
+        .add-image-btn {
+            width: 50px;
+            height: 50px;
+            border: 2px dashed #ccc;
+            border-radius: 4px;
+            background: #f9fafb;
+            color: #666;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .add-image-btn:hover {
+            border-color: #1f8a70;
+            color: #1f8a70;
+            background: #f0fdf4;
+        }
+
+        /* Tabs */
+        .tab-container {
+            display: flex;
+            gap: 4px;
+            background: #f3f4f6;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        .tab-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background: white;
+            color: #1f8a70;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .tab-btn:hover:not(.active) {
+            color: #374151;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Table Controls */
+        .table-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px 0;
+        }
+        .search-box input {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            width: 250px;
+            font-size: 0.9rem;
+        }
+        .pagination-info {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        /* Pagination */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .pagination {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .page-btn {
+            padding: 8px 16px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .page-btn:hover:not(:disabled) {
+            background: #f9fafb;
+            border-color: #1f8a70;
+        }
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .page-info {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 
@@ -462,14 +538,14 @@ if (!empty($due_harvests)) {
 </aside>
 
 <main class="main-content">
-    <div style="width:100%; max-width:1200px; margin:0 auto; padding:32px 24px;">
+    <div style="width:100%; max-width:1600px; margin:0 auto; padding:32px 24px;">
     <div class="topbar" style="justify-content:center; flex-wrap:wrap; gap:12px;">
         <div style="display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
     <div class="page-title">
         <h1>Inventory Management</h1>
         <p>Manage your crops inventory</p>
     </div>
-    <button onclick="openAddModal()" class="confirm-btn">Add Crop</button>
+    <a href="crop_add.php" class="confirm-btn">Add Crop</a>
 </div>
 
 <div class="content">
@@ -481,22 +557,28 @@ if (!empty($due_harvests)) {
             </div>
         <?php endif; ?>
 
-        <?php if (!empty($_SESSION['message'])): ?>
-            <div style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:12px 16px;border-radius:12px;margin-bottom:16px;">
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div style="background:#f0fdf4;border:1px solid #10b981;color:#047857;padding:12px 16px;border-radius:12px;margin-bottom:16px;">
+                <?= htmlspecialchars($_SESSION['success_message']) ?>
+            </div>
+            <?php unset($_SESSION['success_message']); ?>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['message'])): ?>
+            <div style="background:#f0fdf4;border:1px solid #10b981;color:#047857;padding:12px 16px;border-radius:12px;margin-bottom:16px;">
                 <?= htmlspecialchars($_SESSION['message']) ?>
             </div>
             <?php unset($_SESSION['message']); ?>
         <?php endif; ?>
 
-        <!-- 2-Column Grid Layout -->
-        <div style="display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start;">
-            <!-- LEFT COLUMN: Crop Inventory Management -->
+        <!-- TOP SECTION: Harvested Crops (Left and Right) -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px;">
+            <!-- LEFT: Harvest to be Done -->
             <div>
-                <!-- Harvest Due Today -->
                 <?php if (!empty($due_harvests)): ?>
-                    <div class="table-card" style="margin:0 0 20px 0; width:100%; box-sizing:border-box; padding:24px;">
+                    <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
                         <div class="table-header">
-                            <h3>Harvest Due Today</h3>
+                            <h3> Harvest to be Done</h3>
                         </div>
                         <table class="data-table">
                             <thead>
@@ -512,11 +594,11 @@ if (!empty($due_harvests)) {
                                     <tr>
                                         <td><?= htmlspecialchars($h['crop_name']) ?></td>
                                         <td><?= htmlspecialchars($h['quantity'].' '.$h['unit']) ?></td>
-                                        <td><?= htmlspecialchars($h['harvest_date']) ?></td>
+                                        <td><?= htmlspecialchars($h['harvest_date'] && $h['harvest_date'] !== '0000-00-00' ? (new DateTime($h['harvest_date']))->format('Y-m-d') : 'Not set') ?></td>
                                         <td>
-                                            <form method="POST" style="display:inline;">
+                                            <form method="POST" style="display:inline; margin-right: 8px;">
                                                 <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
-                                                <button type="submit" name="harvest_action" value="confirm" class="confirm-btn">Confirm Harvest</button>
+                                                <button type="submit" name="harvest_action" value="confirm" class="confirm-btn" style="background: #3b82f6; color: white;">Confirm</button>
                                             </form>
                                             <form method="POST" style="display:inline;">
                                                 <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
@@ -528,270 +610,329 @@ if (!empty($due_harvests)) {
                             </tbody>
                         </table>
                     </div>
-                <?php endif; ?>
-
-                <!-- My Crops Inventory Table -->
-                <div class="table-card" style="margin:0; width:100%; box-sizing:border-box; padding:24px;">
-                    <div class="table-header">
-                        <h3>My Crops</h3>
+                <?php else: ?>
+                    <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
+                        <div class="table-header">
+                            <h3> Harvest to be Done</h3>
+                        </div>
+                        <div style="text-align:center; padding:40px; color:var(--text-light);">
+                            No pending harvests
+                        </div>
                     </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Crop</th>
-                                <th>Quantity</th>
-                                <th>Harvest Date</th>
-                                <th>Price</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                <?php endif; ?>
+            </div>
+
+            <!-- RIGHT: Harvested Crops -->
+            <div>
+                <?php if (!empty($harvested_crops)): ?>
+                    <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
+                        <div class="table-header">
+                            <h3>Recently Harvested</h3>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Crop</th>
+                                    <th>Quantity</th>
+                                    <th>Harvest Date</th>
+                                    <th>Harvested On</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($harvested_crops as $h): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($h['crop_name']) ?></td>
+                                        <td><?= htmlspecialchars($h['quantity'].' '.$h['unit']) ?></td>
+                                        <td><?= htmlspecialchars($h['harvest_date'] && $h['harvest_date'] !== '0000-00-00' ? (new DateTime($h['harvest_date']))->format('Y-m-d') : 'Not set') ?></td>
+                                        <td><?= htmlspecialchars($h['harvest_confirmed_at'] ? (new DateTime($h['harvest_confirmed_at']))->format('M d, H:i') : 'N/A') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
+                        <div class="table-header">
+                            <h3>Recently Harvested</h3>
+                        </div>
+                        <div style="text-align:center; padding:40px; color:var(--text-light);">
+                            No harvested crops yet
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- BOTTOM SECTION: All Crops with Tabs -->
+        <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
+            <div class="table-header">
+                <h3>All Crops Inventory</h3>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div class="tab-container">
+                        <button class="tab-btn active" onclick="showTab('all')">All Crops</button>
+                        <button class="tab-btn" onclick="showTab('available')">Available</button>
+                        <button class="tab-btn" onclick="showTab('scheduled')">Scheduled</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- All Crops Tab Content -->
+            <div id="all-crops-tab" class="tab-content active">
+                <div class="table-controls">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Search crops..." onkeyup="searchCrops()">
+                    </div>
+                    <div class="pagination-info">
+                        Showing <span id="showing-count"><?= count($inventory) ?></span> of <?= count($inventory) ?> crops
+                    </div>
+                </div>
+                
+                <table class="data-table" id="crops-table">
+                    <thead>
+                        <tr>
+                            <th>Crop</th>
+                            <th>Images</th>
+                            <th>Quantity</th>
+                            <th>Harvest Date</th>
+                            <th>Price</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         <?php if (!empty($inventory)): ?>
                             <?php foreach ($inventory as $item): ?>
-                                <tr>
+                                <tr class="crop-row" data-crop-name="<?= strtolower(htmlspecialchars($item['crop_name'])) ?>">
                                     <td><?= htmlspecialchars($item['crop_name']) ?></td>
+                                    <td>
+                                        <div class="crop-images-container">
+                                            <?php 
+                                            $images = $item['images'] ? explode(',', $item['images']) : [];
+                                            $image_ids = $item['image_ids'] ? explode(',', $item['image_ids']) : [];
+                                            foreach ($images as $index => $image_path): 
+                                                if (!empty($image_path)):
+                                                    $image_id = $image_ids[$index] ?? 0;
+                                                    $is_primary = $index === 0;
+                                            ?>
+                                                <div class="crop-image-item <?= $is_primary ? 'primary' : '' ?>">
+                                                    <img src="../<?= htmlspecialchars($image_path) ?>" alt="Crop image" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+                                                    <div class="image-actions">
+                                                        <button type="button" class="icon-btn" onclick="setPrimaryImage(<?= $image_id ?>, <?= $item['inventory_id'] ?>)" title="Set as primary">
+                                                            <i class="fa-solid fa-star" style="color: <?= $is_primary ? '#f28705' : '#ccc' ?>;"></i>
+                                                        </button>
+                                                        <button type="button" class="icon-btn delete-btn" onclick="deleteCropImage(<?= $image_id ?>, <?= $item['inventory_id'] ?>)" title="Delete image">
+                                                            <i class="fa-solid fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            <?php 
+                                                endif;
+                                            endforeach; 
+                                            ?>
+                                            <button type="button" class="add-image-btn" onclick="openImageModal(<?= $item['inventory_id'] ?>)" title="Add image">
+                                                <i class="fa-solid fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </td>
                                     <td><?= htmlspecialchars($item['quantity'].' '.$item['unit']) ?></td>
-                                    <td><?= htmlspecialchars($item['harvest_date']) ?></td>
+                                    <td><?= htmlspecialchars($item['harvest_date'] && $item['harvest_date'] !== '0000-00-00' ? (new DateTime($item['harvest_date']))->format('Y-m-d') : 'Not set') ?></td>
                                     <td><?= number_format($item['price'],2) ?></td>
                                     <td>
-                                        <button class="icon-btn edit-btn" onclick="openEditModal(<?= $item['inventory_id'] ?>, <?= $item['crop_id'] ?>, '<?= htmlspecialchars($item['crop_name'], ENT_QUOTES) ?>', <?= $item['quantity'] ?>, '<?= $item['harvest_date'] ?>', <?= $item['price'] ?>)"><i class="fa-solid fa-pen-to-square"></i></button>
-                                        <button class="icon-btn delete-btn" onclick="openDeleteModal(<?= $item['inventory_id'] ?>)"><i class="fa-solid fa-trash"></i></button>
+                                        <a href="crop_edit.php?id=<?= $item['inventory_id'] ?>" class="icon-btn edit-btn" title="Edit Crop" style="margin-right: 8px;"><i class="fa-solid fa-pen-to-square"></i></a>
+                                        <form method="POST" style="display:inline;">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="inventory_id" value="<?= $item['inventory_id'] ?>">
+                                            <button type="submit" class="icon-btn delete-btn" title="Delete Crop" onclick="return confirm('Are you sure you want to delete this crop?')"><i class="fa-solid fa-trash"></i></button>
+                                        </form>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="5" style="text-align:center; padding:40px;">No crops found.</td></tr>
+                            <tr><td colspan="6" style="text-align:center; padding:40px;">No crops found.</td></tr>
                         <?php endif; ?>
-                        </tbody>
-                    </table>
+                    </tbody>
+                </table>
+                
+                <!-- Pagination -->
+                <div class="pagination-container">
+                    <div class="pagination">
+                        <button class="page-btn" onclick="changePage('prev')" id="prev-btn"> Previous</button>
+                        <span class="page-info">Page <span id="current-page">1</span> of <span id="total-pages">1</span></span>
+                        <button class="page-btn" onclick="changePage('next')" id="next-btn">Next </button>
+                    </div>
                 </div>
             </div>
-
-            <!-- RIGHT COLUMN: Weather & Analytics Sidebar -->
-            <div style="display: flex; flex-direction: column; gap: 20px;">
-                <!-- Current Weather & Alerts Panel -->
-                <div class="table-card" style="margin:0; width:100%; box-sizing:border-box; padding:20px;">
-                    <div class="table-header" style="justify-content: space-between; padding: 0 0 12px 0; border-bottom: 1px solid var(--border);">
-                        <h3 style="font-size: 1.1rem; margin: 0;">Weather & Alerts</h3>
-                        <div style="display: flex; gap: 8px;">
-                            <button onclick="refreshWeather()" class="confirm-btn" style="padding:6px 12px; font-size:0.85rem; background:#1f8a70; color:white; border:none; border-radius:6px; cursor:pointer;">🔄 Refresh</button>
-                            <button onclick="clearAlerts()" class="confirm-btn" style="padding:6px 12px; font-size:0.85rem; background:#ef4444; color:white; border:none; border-radius:6px; cursor:pointer;">✕ Clear</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Current Weather Display -->
-                    <?php if (!empty($current_weather)): ?>
-                    <div style="padding:12px 0; border-bottom:1px solid var(--border);">
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
-                            <div style="text-align: center;">
-                                <div style="font-size:2rem; font-weight:bold; color:#1f8a70;">
-                                    <?= number_format($current_weather['temperature_2m'] ?? 0, 1) ?>°C
-                                </div>
-                                <div style="color:var(--text-light); font-size:0.85rem;">Temperature</div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                <div style="text-align: center; padding: 8px; background: #f9fafb; border-radius: 6px;">
-                                    <div style="font-size:1rem; font-weight:bold;">
-                                        <?= $current_weather['relative_humidity_2m'] ?? 'N/A' ?>%
-                                    </div>
-                                    <div style="color:var(--text-light); font-size:0.75rem;">Humidity</div>
-                                </div>
-                                <div style="text-align: center; padding: 8px; background: #f9fafb; border-radius: 6px;">
-                                    <div style="font-size:1rem; font-weight:bold;">
-                                        <?= number_format($current_weather['wind_speed_10m'] ?? 0, 1) ?> km/h
-                                    </div>
-                                    <div style="color:var(--text-light); font-size:0.75rem;">Wind</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <?php else: ?>
-                    <div style="padding:12px; color:var(--text-light); text-align:center; font-size:0.85rem;">
-                        No weather data. <a href="#" onclick="refreshWeather(); return false;" style="color:#1f8a70; text-decoration:none;">Fetch now</a>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <!-- Weather Alerts -->
-                    <?php if (!empty($weather_alerts)): ?>
-                    <div style="padding-top:12px;">
-                        <h4 style="margin:0 0 8px 0; color:var(--text); font-size:0.95rem;">Alerts</h4>
-                        <?php foreach ($weather_alerts as $alert): ?>
-                            <div style="padding:8px; margin-bottom:6px; border-radius:6px; font-size:0.8rem;
-                                <?php 
-                                    if ($alert['severity'] === 'High') echo 'background:#fef2f2; border-left:3px solid #ef4444;';
-                                    elseif ($alert['severity'] === 'Medium') echo 'background:#fffbeb; border-left:3px solid #f59e0b;';
-                                    else echo 'background:#f0fdf4; border-left:3px solid #10b981;';
-                                ?>">
-                                <div style="font-weight:600; margin-bottom:2px;">
-                                    <?= htmlspecialchars($alert['title']) ?>
-                                </div>
-                                <div style="color:var(--text-light);">
-                                    <?= htmlspecialchars($alert['message']) ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php else: ?>
-                    <div style="padding-top:8px; color:var(--text-light); text-align:center; font-size:0.85rem;">
-                        No alerts ✓
-                    </div>
-                    <?php endif; ?>
+            
+            <!-- Available Crops Tab Content -->
+            <div id="available-crops-tab" class="tab-content">
+                <div style="text-align:center; padding:40px; color:var(--text-light);">
+                    Available crops (ready for sale) will appear here
                 </div>
-
-                <!-- Yield Analytics Panel -->
-                <div class="table-card" style="margin:0; width:100%; box-sizing:border-box; padding:20px;">
-                    <div class="table-header" style="padding: 0 0 12px 0; border-bottom: 1px solid var(--border); justify-content: center;">
-                        <h3 style="font-size: 1.1rem; margin: 0;">Yield Analytics</h3>
-                    </div>
-                    <div style="padding-top:12px;">
-                        <div style="display: flex; flex-direction: column; gap: 12px; text-align: center;">
-                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
-                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= $analytics['total_crops'] ?></div>
-                                <div style="color:var(--text-light); font-size:0.8rem;">Harvest Records</div>
-                            </div>
-                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
-                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= $analytics['total_quantity'] ?></div>
-                                <div style="color:var(--text-light); font-size:0.8rem;">Total Yield</div>
-                            </div>
-                            <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
-                                <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= number_format($analytics['avg_yield'],2) ?></div>
-                                <div style="color:var(--text-light); font-size:0.8rem;">Avg Yield</div>
-                            </div>
-                        </div>
-                    </div>
+            </div>
+            
+            <!-- Scheduled Crops Tab Content -->
+            <div id="scheduled-crops-tab" class="tab-content">
+                <div style="text-align:center; padding:40px; color:var(--text-light);">
+                    Scheduled crops (not yet harvested) will appear here
                 </div>
             </div>
         </div>
-        <!-- End 2-Column Grid -->
-
-</main>
-
-<!-- Add/Edit/Delete Modals same as previous example -->
-<!-- Add Modal -->
-<div id="addModal" class="modal">
-    <div class="modal-box">
-        <h3>Add Crop</h3>
-        <form method="POST">
-            <input type="hidden" name="action" value="add">
-            <label>Crop</label>
-            <input type="text" name="crop_name" id="addCropName" list="cropList" required>
-            <input type="hidden" name="crop_id" id="addCropId">
-            <label>Quantity</label><input type="number" step="0.01" name="quantity" required>
-            <label>Harvest Date</label><input type="date" name="harvest_date" required>
-            <label>Price (per unit)</label>
-            <input type="number" step="0.01" name="price" id="addPrice" required placeholder="Within market range">
-            <div id="addPriceHint" style="margin-top:6px; font-size:0.85rem; color:var(--text-light);"></div>
-            <div style="margin-top:10px;">
-                <button type="submit" class="confirm-btn">Add</button>
-                <button type="button" onclick="closeAddModal()" class="confirm-btn">Cancel</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Edit Modal -->
-<div id="editModal" class="modal">
-    <div class="modal-box">
-        <h3>Edit Crop</h3>
-        <form method="POST">
-            <input type="hidden" name="action" value="edit">
-            <input type="hidden" name="inventory_id" id="editInventoryId">
-            <label>Crop</label>
-            <input type="text" name="crop_name" id="editCropName" list="cropList" required>
-            <input type="hidden" name="crop_id" id="editCropId">
-            <label>Quantity</label><input type="number" id="editQuantity" step="0.01" name="quantity" required>
-            <label>Harvest Date</label><input type="date" id="editHarvestDate" name="harvest_date" required>
-            <label>Price (per unit)</label>
-            <input type="number" id="editPrice" step="0.01" name="price" required placeholder="Within market range">
-            <div id="editPriceHint" style="margin-top:6px; font-size:0.85rem; color:var(--text-light);"></div>
-            <div style="margin-top:10px;">
-                <button type="submit" class="confirm-btn">Save</button>
-                <button type="button" onclick="closeEditModal()" class="confirm-btn">Cancel</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<datalist id="cropList">
-    <?php foreach ($crops as $crop): ?>
-        <option value="<?= htmlspecialchars($crop['crop_name']) ?>" data-id="<?= (int)$crop['crop_id'] ?>"></option>
-    <?php endforeach; ?>
-</datalist>
-
-<!-- Delete Modal -->
-<div id="deleteModal" class="modal">
-    <div class="modal-box">
-        <h3>Confirm Delete</h3>
-        <p>Are you sure you want to delete this crop?</p>
-        <form method="POST">
-            <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="inventory_id" id="deleteInventoryId">
-            <div style="margin-top:10px;">
-                <button type="submit" class="confirm-btn danger">Delete</button>
-                <button type="button" onclick="closeDeleteModal()" class="confirm-btn">Cancel</button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <script>
-var priceRanges = <?= json_encode($price_ranges_by_crop) ?>;
-
-function updatePriceHint(cropId, hintId, priceInputId) {
-    var hint = document.getElementById(hintId);
-    var input = document.getElementById(priceInputId);
-    if (!hint || !input) return;
-    var r = priceRanges[cropId];
-    if (!r || !r.has_data) {
-        hint.textContent = 'No market data yet. Set a competitive price.';
-        input.removeAttribute('min');
-        input.removeAttribute('max');
+// Delete crop image function
+function deleteCropImage(imageId, inventoryId) {
+    if (!confirm('Are you sure you want to delete this image?')) {
         return;
     }
-    hint.textContent = 'Recommended: \u20B1' + Number(r.recommended).toFixed(2) + ' (allowed: \u20B1' + Number(r.price_min).toFixed(2) + ' - \u20B1' + Number(r.price_max).toFixed(2) + ')';
-    input.setAttribute('min', r.price_min);
-    input.setAttribute('max', r.price_max);
-}
-
-function syncCropId(textInputId, hiddenInputId, hintId, priceInputId) {
-    var val = document.getElementById(textInputId).value;
-    var opts = document.getElementById('cropList').options;
-    var id = '';
-    for (var i = 0; i < opts.length; i++) {
-        if (opts[i].value === val) {
-            id = opts[i].dataset.id || '';
-            break;
+    
+    fetch('delete_crop_image.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            image_id: imageId,
+            inventory_id: inventoryId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to delete image'));
         }
-    }
-    document.getElementById(hiddenInputId).value = id;
-    if (hintId && priceInputId && id) updatePriceHint(parseInt(id, 10), hintId, priceInputId);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete image: ' + error.message);
+    });
 }
 
-function openAddModal() {
-    document.getElementById('addModal').style.display='flex';
-    var cropId = document.getElementById('addCropId').value;
-    if (cropId) updatePriceHint(parseInt(cropId, 10), 'addPriceHint', 'addPrice');
+// Set primary image function  
+function setPrimaryImage(imageId, inventoryId) {
+    fetch('set_primary_image.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            image_id: imageId,
+            inventory_id: inventoryId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to set primary image'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to set primary image: ' + error.message);
+    });
 }
-function closeAddModal() { document.getElementById('addModal').style.display='none'; }
 
-document.getElementById('addCropName').addEventListener('input', function() { syncCropId('addCropName', 'addCropId', 'addPriceHint', 'addPrice'); });
-document.getElementById('editCropName').addEventListener('input', function() { syncCropId('editCropName', 'editCropId', 'editPriceHint', 'editPrice'); });
-
-function openEditModal(id, crop_id, crop_name, quantity, harvest_date, price) {
-    document.getElementById('editInventoryId').value = id;
-    document.getElementById('editCropName').value = crop_name;
-    document.getElementById('editCropId').value = crop_id;
-    document.getElementById('editQuantity').value = quantity;
-    document.getElementById('editHarvestDate').value = harvest_date;
-    document.getElementById('editPrice').value = price;
-    document.getElementById('editModal').style.display='flex';
-    updatePriceHint(parseInt(crop_id, 10), 'editPriceHint', 'editPrice');
+// Open image modal function
+function openImageModal(inventoryId) {
+    // Implementation for image upload modal
+    console.log('Open image modal for inventory:', inventoryId);
 }
-function closeEditModal() { document.getElementById('editModal').style.display='none'; }
-
-function openDeleteModal(id) { document.getElementById('deleteInventoryId').value = id; document.getElementById('deleteModal').style.display='flex'; }
-function closeDeleteModal() { document.getElementById('deleteModal').style.display='none'; }
 </script>
+
+<!-- Tab and Pagination JavaScript -->
+<script>
+// Tab functionality
+function showTab(tabName) {
+    // Hide all tab contents
+    const allTabs = document.querySelectorAll('.tab-content');
+    allTabs.forEach(tab => tab.classList.remove('active'));
+    
+    // Remove active class from all tab buttons
+    const allButtons = document.querySelectorAll('.tab-btn');
+    allButtons.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab
+    document.getElementById(tabName + '-crops-tab').classList.add('active');
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+}
+
+// Search functionality
+function searchCrops() {
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    const rows = document.querySelectorAll('#crops-table .crop-row');
+    
+    rows.forEach(row => {
+        const cropName = row.getAttribute('data-crop-name');
+        if (cropName.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    updateShowingCount();
+}
+
+// Pagination variables
+let currentPage = 1;
+const rowsPerPage = 10;
+let allRows = [];
+
+// Initialize pagination
+document.addEventListener('DOMContentLoaded', function() {
+    allRows = Array.from(document.querySelectorAll('#crops-table .crop-row'));
+    updatePagination();
+});
+
+function updatePagination() {
+    const totalPages = Math.ceil(allRows.length / rowsPerPage);
+    
+    // Update page info
+    document.getElementById('current-page').textContent = currentPage;
+    document.getElementById('total-pages').textContent = totalPages || 1;
+    
+    // Show/hide rows for current page
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    
+    allRows.forEach((row, index) => {
+        if (index >= startIndex && index < endIndex) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Update button states
+    document.getElementById('prev-btn').disabled = currentPage === 1;
+    document.getElementById('next-btn').disabled = currentPage >= totalPages;
+    
+    updateShowingCount();
+}
+
+function changePage(direction) {
+    const totalPages = Math.ceil(allRows.length / rowsPerPage);
+    
+    if (direction === 'prev' && currentPage > 1) {
+        currentPage--;
+    } else if (direction === 'next' && currentPage < totalPages) {
+        currentPage++;
+    }
+    
+    updatePagination();
+}
+
+function updateShowingCount() {
+    const visibleRows = allRows.filter(row => row.style.display !== 'none');
+    const count = visibleRows.length;
+    document.getElementById('showing-count').textContent = count;
+}
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // Refresh weather data

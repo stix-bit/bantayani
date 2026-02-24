@@ -21,7 +21,7 @@ if ($id <= 0) {
 
 $stmt = $conn->prepare("
     SELECT ci.inventory_id, ci.farmer_id, ci.crop_id, ci.quantity, ci.price, ci.harvest_date,
-           c.crop_name, c.unit,
+           c.crop_name, ci.unit,
            f.farm_name
     FROM crops_inventory ci
     JOIN crops c ON ci.crop_id = c.crop_id
@@ -37,6 +37,19 @@ if (!$row) {
     header('Location: marketplace.php');
     exit;
 }
+
+// Fetch product images
+$product_images = [];
+$stmt = $conn->prepare("
+    SELECT image_path, is_primary 
+    FROM crop_images 
+    WHERE inventory_id = ? 
+    ORDER BY is_primary DESC, image_id ASC
+");
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$product_images = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 
 // Seller (farmer) ratings summary
 $farmer_id = (int) $row['farmer_id'];
@@ -135,7 +148,74 @@ $stmt->close();
             font-size: 1.5rem;
         }
 
-        /* Product image placeholder */
+        /* Product image slider */
+        .product-image-slider {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: linear-gradient(135deg, rgba(31, 138, 112, 0.12), rgba(12, 92, 76, 0.08));
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 2px solid rgba(31, 138, 112, 0.2);
+        }
+
+        .product-image-slider img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .product-image-slider img.active {
+            display: block;
+        }
+
+        .product-image-slider .slider-controls {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+            pointer-events: none;
+        }
+
+        .product-image-slider .slider-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--green-dark);
+            pointer-events: all;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .product-image-slider .slider-btn:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+
+        .product-image-slider .image-counter {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
         .product-image-placeholder {
             width: 100%;
             aspect-ratio: 4/3;
@@ -334,13 +414,30 @@ $stmt->close();
             <div class="product-card">
                 <h2><?= htmlspecialchars($row['crop_name']) ?></h2>
 
-                <div class="product-image-placeholder">
-                    <div style="text-align: center;">
-                        <div class="placeholder-icon">🌾</div>
-                        <div>Product image</div>
-                        <div style="font-size: 0.85rem;">(Coming soon)</div>
+                <?php if (!empty($product_images)): ?>
+                    <div class="product-image-slider">
+                        <?php foreach ($product_images as $index => $image): ?>
+                            <img src="../<?= htmlspecialchars($image['image_path']) ?>" 
+                                 alt="<?= htmlspecialchars($row['crop_name']) ?>"
+                                 class="<?= $index === 0 ? 'active' : '' ?>">
+                        <?php endforeach; ?>
+                        
+                        <?php if (count($product_images) > 1): ?>
+                            <div class="slider-controls">
+                                <button class="slider-btn" onclick="changeImage(-1)">‹</button>
+                                <button class="slider-btn" onclick="changeImage(1)">›</button>
+                            </div>
+                            <div class="image-counter"><?= count($product_images) ?></div>
+                        <?php endif; ?>
                     </div>
-                </div>
+                <?php else: ?>
+                    <div class="product-image-placeholder">
+                        <div style="text-align: center;">
+                            <div class="placeholder-icon">🌾</div>
+                            <div>No product image</div>
+                        </div>
+                    </div>
+                <?php endif; ?>
 
                 <div class="product-detail-row">
                     <span class="product-detail-label">Price</span>
@@ -413,4 +510,22 @@ $stmt->close();
         </div>
     </div>
 </body>
+<script>
+let currentImageIndex = 0;
+const images = document.querySelectorAll('.product-image-slider img');
+const totalImages = images.length;
+
+function changeImage(direction) {
+    images[currentImageIndex].classList.remove('active');
+    currentImageIndex = (currentImageIndex + direction + totalImages) % totalImages;
+    images[currentImageIndex].classList.add('active');
+}
+
+// Auto-rotate images every 3 seconds
+if (totalImages > 1) {
+    setInterval(() => {
+        changeImage(1);
+    }, 3000);
+}
+</script>
 </html>

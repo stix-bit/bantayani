@@ -24,7 +24,7 @@ $cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
 if ($cols && $cols->num_rows > 0) $has_unit_price = true;
 
 $select_extras = ($has_unit_price ? ", p.unit_price" : "");
-$sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, c.unit $select_extras
+$sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, p.unit $select_extras
         FROM cooperative_pools p
         JOIN crops c ON p.crop_id = c.crop_id
         WHERE p.pool_id = ?";
