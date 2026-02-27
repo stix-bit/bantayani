@@ -6,23 +6,112 @@ $farmer_id = $_SESSION['user_id'];
 
 // weather alerts - fetch active alerts only (last 24 hours)
 $weather_alerts = [];
-$result = $conn->query("
-    SELECT * FROM weather_alerts
-    WHERE created_at > NOW() - INTERVAL 1 DAY
-    ORDER BY 
-        CASE severity 
-            WHEN 'High' THEN 1 
-            WHEN 'Medium' THEN 2 
-            ELSE 3 
-        END,
-        created_at DESC
-    LIMIT 5
-");
 
-if ($result) {
-    $weather_alerts = $result->fetch_all(MYSQLI_ASSOC);
+if (!empty($current_weather)) {
+    $temp  = $current_weather['temperature_2m']       ?? null;
+    $wind  = $current_weather['wind_speed_10m']       ?? null;
+    $rain  = $current_weather['precipitation']        ?? 0;
+    $humid = $current_weather['relative_humidity_2m'] ?? null;
+
+    // ── Temperature alerts ────────────────────────────────────────────
+    if ($temp !== null) {
+        if ($temp >= 38) {
+            $weather_alerts[] = [
+                'title'    => 'Heat Alert',
+                'message'  => 'Temperatures above 38°C may stress crops. Water regularly.',
+                'severity' => 'Medium'
+            ];
+        } elseif ($temp >= 33 && $temp < 38) {
+            // NEW LOW: warm but not dangerous
+            $weather_alerts[] = [
+                'title'    => 'Warm Day Advisory',
+                'message'  => 'Temperatures between 33–38°C. Monitor soil moisture and shade sensitive seedlings.',
+                'severity' => 'Low'
+            ];
+        } elseif ($temp <= 5) {
+            $weather_alerts[] = [
+                'title'    => 'Frost Warning',
+                'message'  => 'Temperatures may drop below 5°C tonight. Protect sensitive plants.',
+                'severity' => 'High'
+            ];
+        } elseif ($temp > 5 && $temp <= 10) {
+            // NEW LOW: cool but not freezing
+            $weather_alerts[] = [
+                'title'    => 'Cool Temperature Notice',
+                'message'  => 'Temperatures between 5–10°C. Consider light covering for cold-sensitive crops.',
+                'severity' => 'Low'
+            ];
+        }
+    }
+
+    // ── Wind alerts ───────────────────────────────────────────────────
+    if ($wind !== null) {
+        if ($wind >= 50) {
+            $weather_alerts[] = [
+                'title'    => 'Strong Winds Advisory',
+                'message'  => 'Wind speeds of 50+ km/h expected. Secure crops and equipment.',
+                'severity' => 'Medium'
+            ];
+        } elseif ($wind >= 30 && $wind < 50) {
+            // NEW LOW: moderate wind
+            $weather_alerts[] = [
+                'title'    => 'Moderate Wind Notice',
+                'message'  => 'Wind speeds of 30–50 km/h expected. Check trellises and support structures.',
+                'severity' => 'Low'
+            ];
+        }
+    }
+
+    // ── Rain / Precipitation alerts ───────────────────────────────────
+    if ($rain >= 20) {
+        $weather_alerts[] = [
+            'title'    => 'Heavy Rain Warning',
+            'message'  => 'Heavy rainfall expected. Consider early harvest to prevent crop damage.',
+            'severity' => 'High'
+        ];
+    } elseif ($rain >= 5 && $rain < 20) {
+        // NEW LOW: moderate rain
+        $weather_alerts[] = [
+            'title'    => 'Moderate Rainfall Expected',
+            'message'  => 'Rainfall of 5–20 mm expected. Check drainage and delay fertilizer application.',
+            'severity' => 'Low'
+        ];
+    } elseif ($rain > 0 && $rain < 5) {
+        $weather_alerts[] = [
+            'title'    => 'Mild Showers Expected',
+            'message'  => 'Light rain expected. No immediate action needed.',
+            'severity' => 'Low'
+        ];
+    }
+
+    // ── Humidity alerts ───────────────────────────────────────────────
+    if ($humid !== null) {
+        if ($humid >= 90) {
+            $weather_alerts[] = [
+                'title'    => 'Very High Humidity Notice',
+                'message'  => 'Humidity above 90%. Watch for fungal disease on leaves and fruit.',
+                'severity' => 'Medium'
+            ];
+        } elseif ($humid >= 75 && $humid < 90) {
+            // NEW LOW: elevated humidity
+            $weather_alerts[] = [
+                'title'    => 'Elevated Humidity Advisory',
+                'message'  => 'Humidity between 75–90%. Ensure good air circulation around crops.',
+                'severity' => 'Low'
+            ];
+        } elseif ($humid <= 20) {
+            // NEW LOW: very dry
+            $weather_alerts[] = [
+                'title'    => 'Low Humidity Notice',
+                'message'  => 'Humidity below 20%. Increase irrigation frequency to prevent drought stress.',
+                'severity' => 'Low'
+            ];
+        }
+    }
 }
+?>
 
+<?php
 // Get latest weather data for farmer's region (same as API refresh)
 require_once '../includes/weather_helper.php';
 $current_weather = [];
@@ -663,29 +752,65 @@ if (!empty($due_harvests)) {
                     
                     <!-- Weather Alerts -->
                     <?php if (!empty($weather_alerts)): ?>
-                    <div style="padding-top:12px;">
-                        <h4 style="margin:0 0 8px 0; color:var(--text); font-size:0.95rem;">Alerts</h4>
-                        <?php foreach ($weather_alerts as $alert): ?>
-                            <div style="padding:8px; margin-bottom:6px; border-radius:6px; font-size:0.8rem;
-                                <?php 
-                                    if ($alert['severity'] === 'High') echo 'background:#fef2f2; border-left:3px solid #ef4444;';
-                                    elseif ($alert['severity'] === 'Medium') echo 'background:#fffbeb; border-left:3px solid #f59e0b;';
-                                    else echo 'background:#f0fdf4; border-left:3px solid #10b981;';
-                                ?>">
-                                <div style="font-weight:600; margin-bottom:2px;">
-                                    <?= htmlspecialchars($alert['title']) ?>
-                                </div>
-                                <div style="color:var(--text-light);">
-                                    <?= htmlspecialchars($alert['message']) ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php else: ?>
-                    <div style="padding-top:8px; color:var(--text-light); text-align:center; font-size:0.85rem;">
-                        No alerts ✓
-                    </div>
-                    <?php endif; ?>
+    <div style="padding-top:12px; display:flex; flex-direction:column; gap:8px;">
+        <h4 style="font-size:0.9rem; color:var(--text-light); margin-bottom:4px;">Alerts</h4>
+        <?php foreach ($weather_alerts as $alert): 
+            // Pick colours by severity
+            if ($alert['severity'] === 'High') {
+                $bg     = '#fef2f2';
+                $border = '#ef4444';
+                $icon   = '🔴';
+                $badge_bg    = '#fecaca';
+                $badge_color = '#991b1b';
+            } elseif ($alert['severity'] === 'Medium') {
+                $bg     = '#fffbeb';
+                $border = '#f59e0b';
+                $icon   = '🟡';
+                $badge_bg    = '#fde68a';
+                $badge_color = '#92400e';
+            } else {
+                // Low
+                $bg     = '#f0fdf4';
+                $border = '#10b981';
+                $icon   = '🟢';
+                $badge_bg    = '#d1fae5';
+                $badge_color = '#065f46';
+            }
+        ?>
+            <div style="
+                background:<?= $bg ?>;
+                border-left: 3px solid <?= $border ?>;
+                border-radius: 6px;
+                padding: 10px 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            ">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <span style="font-weight:600; font-size:0.88rem;">
+                        <?= $icon ?> <?= htmlspecialchars($alert['title']) ?>
+                    </span>
+                    <span style="
+                        background:<?= $badge_bg ?>;
+                        color:<?= $badge_color ?>;
+                        font-size:0.72rem;
+                        font-weight:700;
+                        padding: 2px 8px;
+                        border-radius: 20px;
+                        white-space: nowrap;
+                    "><?= htmlspecialchars($alert['severity']) ?></span>
+                </div>
+                <div style="font-size:0.82rem; color:var(--text-light); line-height:1.4;">
+                    <?= htmlspecialchars($alert['message']) ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+<?php else: ?>
+    <div style="padding-top:12px; text-align:center; color:#10b981; font-size:0.88rem;">
+        ✅ No active weather alerts
+    </div>
+<?php endif; ?>
                 </div>
 
             <!-- RIGHT: Harvested Crops -->
