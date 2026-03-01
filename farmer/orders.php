@@ -1,4 +1,4 @@
-<?php
+status<?php
 // No output before authentication check
 require_once __DIR__ . '/../includes/auth_helper.php';
 require_login('Farmer');
@@ -32,13 +32,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_order_status']
     $verify_stmt->execute();
     $verify_result = $verify_stmt->get_result();
 
-    if ($verify_result && $verify_result->num_rows > 0) {
-        $update_stmt = $conn->prepare("UPDATE orders SET order_status = ? WHERE order_id = ?");
-        $update_stmt->bind_param("si", $order_status, $order_id);
-        $update_stmt->execute();
-        $update_stmt->close();
-        $_SESSION['message'] = 'Order status updated successfully!';
-    }
+   if ($verify_result && $verify_result->num_rows > 0) {
+
+    // Update order status
+    $update_stmt = $conn->prepare("UPDATE orders SET order_status = ? WHERE order_id = ?");
+    $update_stmt->bind_param("si", $order_status, $order_id);
+    $update_stmt->execute();
+    $update_stmt->close();
+
+    // If status changed to Confirmed, mark Cash payments as Paid
+    if ($order_status === 'Confirmed') {
+
+    // Update Cash payments to Paid
+    $payment_stmt = $conn->prepare("
+        UPDATE payment
+        SET payment_status = 'Paid',
+            payment_date = NOW()
+        WHERE order_id = ?
+        AND payment_method = 'Cash'
+    ");
+    $payment_stmt->bind_param("i", $order_id);
+    $payment_stmt->execute();
+    $payment_stmt->close();
+
+    // ALSO update related invoice
+    $invoice_stmt = $conn->prepare("
+        UPDATE invoices
+        SET payment_status = 'Paid'
+        WHERE invoice_id = ?
+    ");
+    $invoice_stmt->bind_param("i", $order_id);
+    $invoice_stmt->execute();
+    $invoice_stmt->close();
+}
+
+    $_SESSION['message'] = 'Order status updated successfully!';
+}
     $verify_stmt->close();
 }
 
@@ -49,13 +78,13 @@ SELECT DISTINCT
     o.order_status,
     GROUP_CONCAT(c.crop_name SEPARATOR ', ') as crops,
     SUM(ci.price) as total_price
-FROM order_items oi
-JOIN orders o ON oi.order_id = o.order_id
-JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-JOIN crops c ON ci.crop_id = c.crop_id
-WHERE ci.farmer_id = ?
-GROUP BY o.order_id, o.order_date, o.order_status
-ORDER BY o.order_date DESC
+    FROM order_items oi
+    JOIN orders o ON oi.order_id = o.order_id
+    JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+    JOIN crops c ON ci.crop_id = c.crop_id
+    WHERE ci.farmer_id = ?
+    GROUP BY o.order_id, o.order_date, o.order_status
+    ORDER BY o.order_date DESC
 ";
 
 $stmt = $conn->prepare($sql);

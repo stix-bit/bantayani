@@ -5,6 +5,23 @@ require_login('Buyer');
 include "../includes/config.php";
 
 $buyer_id = $_SESSION['user_id'];
+
+// Get buyer preferred payment method
+$stmtPM = $conn->prepare("
+    SELECT preferred_payment_method 
+    FROM buyer_profiles 
+    WHERE buyer_id = ?
+");
+$stmtPM->bind_param("i", $buyer_id);
+$stmtPM->execute();
+$stmtPM->bind_result($preferred_payment_method);
+$stmtPM->fetch();
+$stmtPM->close();
+
+$preferred_payment_method = $preferred_payment_method ?? 'Cash';
+
+// Determine initial payment status
+$initial_payment_status = ($preferred_payment_method === 'Online') ? 'Paid' : 'Pending';
 $cart = $_SESSION['cart'] ?? [];
 $order_confirmed = isset($_POST['confirm_checkout']) && $_POST['confirm_checkout'] === '1';
 
@@ -87,8 +104,21 @@ if ($order_confirmed) {
     }
 
     if ($ok) {
-        $stmtPay = $conn->prepare("INSERT INTO payment (order_id, payment_method) VALUES (?, 'Cash')");
-        $stmtPay->bind_param("i", $order_id);
+        $stmtPay = $conn->prepare("
+            INSERT INTO payment (order_id, payment_method, payment_status, payment_date)
+            VALUES (?, ?, ?, ?)
+        ");
+
+        $payment_date = ($initial_payment_status === 'Paid') ? date('Y-m-d H:i:s') : null;
+
+        $stmtPay->bind_param(
+            "isss",
+            $order_id,
+            $preferred_payment_method,
+            $initial_payment_status,
+            $payment_date
+        );
+
         $stmtPay->execute();
         $stmtPay->close();
         $conn->commit();
@@ -98,6 +128,8 @@ if ($order_confirmed) {
         $conn->rollback();
         $show_error = true;
     }
+
+    
 }
 
 $user_id = $_SESSION['user_id'];

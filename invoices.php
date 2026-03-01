@@ -26,24 +26,28 @@ if ($user_role === 'Buyer') {
     // Buyer sees invoices they need to pay
     $query = "
         SELECT i.*, 
-               CONCAT(u.first_name, ' ', u.last_name) as farmer_name,
-               fp.farm_name,
-               o.order_status
-        FROM invoices i
-        LEFT JOIN users u ON i.farmer_id = u.user_id
-        LEFT JOIN farmer_profiles fp ON i.farmer_id = fp.farmer_id
-        LEFT JOIN orders o ON i.order_id = o.order_id
-        WHERE i.buyer_id = ?
-        ORDER BY i.created_at DESC
+       p.payment_status,
+       CONCAT(u.first_name, ' ', u.last_name) as farmer_name,
+       fp.farm_name,
+       o.order_status
+FROM invoices i
+LEFT JOIN payment p ON i.order_id = p.order_id
+LEFT JOIN users u ON i.farmer_id = u.user_id
+LEFT JOIN farmer_profiles fp ON i.farmer_id = fp.farmer_id
+LEFT JOIN orders o ON i.order_id = o.order_id
+WHERE i.buyer_id = ?
+ORDER BY i.created_at DESC
     ";
 } else if ($user_role === 'Farmer') {
     // Farmer sees invoices for their sales
     $query = "
         SELECT i.*, 
-               CONCAT(u.first_name, ' ', u.last_name) as buyer_name,
-               c.company_name,
-               o.order_status
+       p.payment_status,
+       CONCAT(u.first_name, ' ', u.last_name) as buyer_name,
+       c.company_name,
+       o.order_status
         FROM invoices i
+        LEFT JOIN payment p ON i.order_id = p.order_id
         LEFT JOIN users u ON i.buyer_id = u.user_id
         LEFT JOIN buyer_profiles bp ON i.buyer_id = bp.buyer_id
         LEFT JOIN company_buyers cb ON cb.buyer_id = bp.buyer_id
@@ -72,11 +76,26 @@ $stats = [
     'total_amount' => 0
 ];
 
-foreach ($invoices as $invoice) {
+foreach ($invoices as &$invoice) {
+
     $stats['total_invoices']++;
     $stats['total_amount'] += $invoice['total_amount'];
-    
-    switch ($invoice['payment_status']) {
+
+    // Determine real-time status
+    $payment_status = $invoice['payment_status'] ?? 'Unpaid';
+
+    // If unpaid and due date passed → mark overdue
+    if (
+        $payment_status !== 'Paid' &&
+        !empty($invoice['due_date']) &&
+        strtotime($invoice['due_date']) < time()
+    ) {
+        $payment_status = 'Overdue';
+    }
+
+    $invoice['computed_status'] = $payment_status;
+
+    switch ($payment_status) {
         case 'Paid':
             $stats['paid']++;
             break;
@@ -88,6 +107,7 @@ foreach ($invoices as $invoice) {
             break;
     }
 }
+unset($invoice);
 
 // Handle logout
 if (isset($_GET['logout'])) {
@@ -545,8 +565,8 @@ if (isset($_GET['logout'])) {
                                 </td>
                                 <td><strong>₱<?= number_format($invoice['total_amount'], 2) ?></strong></td>
                                 <td>
-                                    <span class="status-badge status-<?= strtolower(str_replace(' ', '', $invoice['payment_status'])) ?>">
-                                        <?= $invoice['payment_status'] ?>
+                                    <span class="status-badge status-<?= strtolower(str_replace(' ', '', $invoice['computed_status'])) ?>">
+                                    <?= $invoice['computed_status'] ?>
                                     </span>
                                 </td>
                                 <td>
@@ -563,7 +583,7 @@ if (isset($_GET['logout'])) {
                                     <a href="invoice_view.php?id=<?= $invoice['invoice_id'] ?>" class="btn btn-primary">
                                         View
                                     </a>
-                                    <?php if ($invoice['payment_status'] === 'Paid'): ?>
+                                    <?php if ($invoice['computed_status'] === 'Paid'): ?>
                                         <a href="receipt_view.php?invoice=<?= $invoice['invoice_id'] ?>" class="btn btn-secondary">
                                             Receipt
                                         </a>

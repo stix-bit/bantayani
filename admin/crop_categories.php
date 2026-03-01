@@ -102,7 +102,7 @@ $stmt->close();
             <li><a href="users.php" class="nav-link"><span class="nav-icon">👥</span><span>Users</span></a></li>
             <li><a href="verify_farmers.php" class="nav-link"><span class="nav-icon">✅</span><span>Verification</span></a></li>
             <li><a href="orders.php" class="nav-link"><span class="nav-icon">📦</span><span>Orders</span></a></li>
-            <li><a href="reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
+            <li><a href="../reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
         </ul>
     </div>
 

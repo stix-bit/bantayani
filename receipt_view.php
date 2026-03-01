@@ -18,19 +18,19 @@ if ($invoice_id <= 0) {
 
 // Fetch invoice and payment details
 $query = "
-    SELECT i.*, pt.*,
-           CONCAT(buyer.first_name, ' ', buyer.last_name) as buyer_name,
-           buyer.address as buyer_address,
-           CONCAT(farmer.first_name, ' ', farmer.last_name) as farmer_name,
+    SELECT i.invoice_id, i.invoice_number, i.total_amount,
+           pt.payment_method, pt.payment_date,
+           CONCAT(buyer.first_name, ' ', buyer.last_name) AS buyer_name,
+           buyer.address AS buyer_address,
+           CONCAT(farmer.first_name, ' ', farmer.last_name) AS farmer_name,
            fp.farm_name, fp.farm_location
     FROM invoices i
-    LEFT JOIN payment_transactions pt ON i.invoice_id = pt.invoice_id
+    LEFT JOIN payment pt ON i.invoice_id = pt.order_id
     LEFT JOIN users buyer ON i.buyer_id = buyer.user_id
     LEFT JOIN users farmer ON i.farmer_id = farmer.user_id
     LEFT JOIN farmer_profiles fp ON i.farmer_id = fp.farmer_id
     WHERE i.invoice_id = ?
-    AND i.payment_status = 'Paid'
-    AND (i.buyer_id = ? OR i.farmer_id = ?)
+      AND (i.buyer_id = ? OR i.farmer_id = ?)
     ORDER BY pt.payment_date DESC
     LIMIT 1
 ";
@@ -39,6 +39,8 @@ $stmt = $conn->prepare($query);
 $stmt->bind_param("iii", $invoice_id, $user_id, $user_id);
 $stmt->execute();
 $receipt_data = $stmt->get_result()->fetch_assoc();
+
+
 $stmt->close();
 
 if (!$receipt_data) {
@@ -309,16 +311,6 @@ $receipt_number = 'RCP-' . date('Y') . '-' . str_pad($invoice_id, 6, '0', STR_PA
                 <div class="info-row">
                     <span class="info-label">Payment Method:</span>
                     <span class="info-value"><?= htmlspecialchars($receipt_data['payment_method']) ?></span>
-                </div>
-                <?php if ($receipt_data['reference_number']): ?>
-                    <div class="info-row">
-                        <span class="info-label">Reference Number:</span>
-                        <span class="info-value"><?= htmlspecialchars($receipt_data['reference_number']) ?></span>
-                    </div>
-                <?php endif; ?>
-                <div class="info-row">
-                    <span class="info-label">Transaction Number:</span>
-                    <span class="info-value"><?= htmlspecialchars($receipt_data['transaction_number']) ?></span>
                 </div>
             </div>
 

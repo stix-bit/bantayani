@@ -84,7 +84,7 @@ foreach ($items as $i) {
                 <li><a href="users.php" class="nav-link">👥 Users</a></li>
                 <li><a href="verify_farmers.php" class="nav-link">✅ Verification</a></li>
                 <li><a href="orders.php" class="nav-link active">📦 Orders</a></li>
-                <li><a href="reports.php" class="nav-link">📈 Reports</a></li>
+                <li><a href="../reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
             </ul>
         </div>
         <div class="nav-section">

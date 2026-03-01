@@ -51,6 +51,8 @@ $stmt->execute();
 $invoice = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
+
+
 if (!$invoice) {
     header('Location: invoices.php');
     exit;
@@ -66,18 +68,29 @@ $stmt->execute();
 $items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Fetch payment history
-$stmt = $conn->prepare("
-    SELECT pt.*, CONCAT(u.first_name, ' ', u.last_name) as processed_by_name
-    FROM payment_transactions pt
-    LEFT JOIN users u ON pt.processed_by = u.user_id
-    WHERE pt.invoice_id = ?
-    ORDER BY pt.payment_date DESC
+// Fetch payments for this invoice
+$payments = [];
+$payment_stmt = $conn->prepare("
+    SELECT * 
+    FROM payment
+    WHERE order_id = ?
 ");
-$stmt->bind_param("i", $invoice_id);
-$stmt->execute();
-$payments = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+// Get payments for this order
+$payment_status = 'Unpaid'; // default
+$payment_stmt = $conn->prepare("SELECT payment_status FROM payment WHERE order_id = ?");
+$payment_stmt->bind_param("i", $invoice['order_id']);
+$payment_stmt->execute();
+$payment_result = $payment_stmt->get_result();
+
+while ($row = $payment_result->fetch_assoc()) {
+    if ($row['payment_status'] === 'Paid') {
+        $payment_status = 'Paid';
+        break; // at least one payment is paid
+    }
+}
+$payment_stmt->close();
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -384,9 +397,10 @@ $stmt->close();
                     <div class="invoice-date">
                         Date: <?= date('F d, Y', strtotime($invoice['created_at'])) ?>
                     </div>
-                    <div class="status-badge status-<?= strtolower(str_replace(' ', '', $invoice['payment_status'])) ?>">
-                        <?= $invoice['payment_status'] ?>
-                    </div>
+
+                        <div class="status-badge status-<?= strtolower(str_replace(' ', '', $payment_status)) ?>">
+                            <?= $payment_status ?>
+                        </div>
                 </div>
             </div>
 
@@ -458,29 +472,7 @@ $stmt->close();
                 </div>
             </div>
 
-            <!-- Payment History -->
-            <?php if (!empty($payments)): ?>
-                <div class="payment-history">
-                    <h3>Payment History</h3>
-                    <?php foreach ($payments as $payment): ?>
-                        <div class="payment-item">
-                            <div>
-                                <div><strong>₱<?= number_format($payment['amount_paid'], 2) ?></strong></div>
-                                <div style="font-size: 0.9rem; color: var(--text-light);">
-                                    <?= $payment['payment_method'] ?> • 
-                                    <?= date('M d, Y', strtotime($payment['payment_date'])) ?>
-                                    <?php if ($payment['reference_number']): ?>
-                                        • Ref: <?= htmlspecialchars($payment['reference_number']) ?>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div>
-                                <span style="color: #16a34a;">✓ Paid</span>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
+        
 
             <!-- Due Date -->
             <?php if ($invoice['due_date'] && $invoice['payment_status'] !== 'Paid'): ?>

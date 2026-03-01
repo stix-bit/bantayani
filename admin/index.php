@@ -101,7 +101,7 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
                 <li><a href="users.php" class="nav-link"><span class="nav-icon">👥</span><span>Users</span></a></li>
                 <li><a href="verify_farmers.php" class="nav-link"><span class="nav-icon">✅</span><span>Verification</span></a></li>
                 <li><a href="orders.php" class="nav-link"><span class="nav-icon">📦</span><span>Orders</span></a></li>
-                <li><a href="reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
+                <li><a href="../reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a></li>
             </ul>
         </div>
         
@@ -310,7 +310,7 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
                     <div class="action-desc">Approve or reject pending farmer verifications</div>
                 </a>
                 
-                <a href="reports.php" class="action-card">
+                <a href="../reports.php" class="action-card">
                     <div class="action-icon">📊</div>
                     <div class="action-title">Generate Reports</div>
                     <div class="action-desc">Create sales, user, and system reports</div>

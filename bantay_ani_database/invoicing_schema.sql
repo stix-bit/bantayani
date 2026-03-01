@@ -41,42 +41,42 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     FOREIGN KEY (inventory_id) REFERENCES crops_inventory(inventory_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Payment Transactions Table (payment history)
-CREATE TABLE IF NOT EXISTS payment_transactions (
-    transaction_id INT AUTO_INCREMENT PRIMARY KEY,
-    invoice_id INT NOT NULL,
-    transaction_number VARCHAR(50) UNIQUE NOT NULL,
-    amount_paid DECIMAL(10, 2) NOT NULL,
-    payment_method ENUM('Cash', 'Bank Transfer', 'GCash', 'PayMaya', 'Credit Card', 'Check') NOT NULL,
-    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    reference_number VARCHAR(100) NULL,
-    notes TEXT NULL,
-    processed_by INT NULL,
-    FOREIGN KEY (invoice_id) REFERENCES invoices(invoice_id) ON DELETE CASCADE,
-    FOREIGN KEY (processed_by) REFERENCES users(user_id) ON DELETE SET NULL,
-    INDEX idx_invoice (invoice_id),
-    INDEX idx_transaction_number (transaction_number)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- -- Payment Transactions Table (payment history)
+-- CREATE TABLE IF NOT EXISTS payment_transactions (
+--     transaction_id INT AUTO_INCREMENT PRIMARY KEY,
+--     invoice_id INT NOT NULL,
+--     transaction_number VARCHAR(50) UNIQUE NOT NULL,
+--     amount_paid DECIMAL(10, 2) NOT NULL,
+--     payment_method ENUM('Cash', 'Bank Transfer', 'GCash', 'PayMaya', 'Credit Card', 'Check') NOT NULL,
+--     payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+--     reference_number VARCHAR(100) NULL,
+--     notes TEXT NULL,
+--     processed_by INT NULL,
+--     FOREIGN KEY (invoice_id) REFERENCES invoices(invoice_id) ON DELETE CASCADE,
+--     FOREIGN KEY (processed_by) REFERENCES users(user_id) ON DELETE SET NULL,
+--     INDEX idx_invoice (invoice_id),
+--     INDEX idx_transaction_number (transaction_number)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Receipts Table (official receipts)
-CREATE TABLE IF NOT EXISTS receipts (
-    receipt_id INT AUTO_INCREMENT PRIMARY KEY,
-    receipt_number VARCHAR(50) UNIQUE NOT NULL,
-    invoice_id INT NOT NULL,
-    transaction_id INT NULL,
-    issued_to INT NOT NULL,
-    issued_by INT NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
-    payment_method VARCHAR(50) NOT NULL,
-    receipt_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    qr_code_path VARCHAR(255) NULL,
-    FOREIGN KEY (invoice_id) REFERENCES invoices(invoice_id) ON DELETE CASCADE,
-    FOREIGN KEY (transaction_id) REFERENCES payment_transactions(transaction_id) ON DELETE SET NULL,
-    FOREIGN KEY (issued_to) REFERENCES users(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (issued_by) REFERENCES users(user_id) ON DELETE CASCADE,
-    INDEX idx_receipt_number (receipt_number),
-    INDEX idx_invoice (invoice_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- -- Receipts Table (official receipts)
+-- CREATE TABLE IF NOT EXISTS receipts (
+--     receipt_id INT AUTO_INCREMENT PRIMARY KEY,
+--     receipt_number VARCHAR(50) UNIQUE NOT NULL,
+--     invoice_id INT NOT NULL,
+--     transaction_id INT NULL,
+--     issued_to INT NOT NULL,
+--     issued_by INT NOT NULL,
+--     amount DECIMAL(10, 2) NOT NULL,
+--     payment_method VARCHAR(50) NOT NULL,
+--     receipt_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+--     qr_code_path VARCHAR(255) NULL,
+--     FOREIGN KEY (invoice_id) REFERENCES invoices(invoice_id) ON DELETE CASCADE,
+--     FOREIGN KEY (transaction_id) REFERENCES payment_transactions(transaction_id) ON DELETE SET NULL,
+--     FOREIGN KEY (issued_to) REFERENCES users(user_id) ON DELETE CASCADE,
+--     FOREIGN KEY (issued_by) REFERENCES users(user_id) ON DELETE CASCADE,
+--     INDEX idx_receipt_number (receipt_number),
+--     INDEX idx_invoice (invoice_id)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Trigger to automatically create invoice when order is confirmed
 DELIMITER //

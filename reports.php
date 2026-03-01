@@ -1,19 +1,11 @@
 <?php
-// No output before authentication check
 require_once __DIR__ . '/includes/auth_helper.php';
 require_login();
 include('includes/config.php');
 
-// Get user information
 $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'];
 $first_name = $_SESSION['first_name'];
-
-// Admins go to admin dashboard
-if ($user_role === 'Admin') {
-    header('Location: admin/index.php');
-    exit;
-}
 
 $profile_img = null;
 
@@ -26,139 +18,117 @@ $stmt->close();
 
 $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
 
-// Profile URL by role (for avatar link)
-$profile_url = $user_role === 'Farmer' ? './farmer/profile.php' : './buyer/profile.php';
-
-// Fetch dashboard data based on user role
-$dashboard_data = [];
-$upcoming_harvests = [];
-$recent_orders = [];
-$recent_notifications = [];
-
-
-try {
-    if ($user_role === 'Farmer') {
-        // Farmer-specific data
-        $stmt = $conn->prepare("
-            SELECT 
-                COUNT(DISTINCT fi.inventory_id) as active_listings,
-                SUM(fi.quantity) as total_inventory,
-                COALESCE(AVG(fi.price), 0) as avg_price,
-                (SELECT COUNT(*) FROM orders o 
-                 JOIN order_items oi ON o.order_id = oi.order_id 
-                 JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id 
-                 WHERE ci.farmer_id = ? AND o.order_status = 'Pending') as pending_orders
-            FROM crops_inventory fi
-            WHERE fi.farmer_id = ?
-        ");
-        $stmt->bind_param('ii', $user_id, $user_id);
-        $stmt->execute();
-        $dashboard_data = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        
-        // Get upcoming harvests
-        $stmt = $conn->prepare("
-            SELECT c.crop_name, ci.harvest_date, ci.quantity 
-            FROM crops_inventory ci
-            JOIN crops c ON ci.crop_id = c.crop_id
-            WHERE ci.farmer_id = ? AND ci.harvest_date >= CURDATE() 
-            ORDER BY ci.harvest_date ASC 
-            LIMIT 3
-        ");
-        $stmt->bind_param('i', $user_id);
-        $stmt->execute();
-        $upcoming_harvests = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        
-        // Get recent orders
-        $stmt = $conn->prepare("
-            SELECT o.order_id, o.order_date, o.order_status, 
-                   GROUP_CONCAT(DISTINCT c.crop_name SEPARATOR ', ') as crops
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-            JOIN crops c ON ci.crop_id = c.crop_id
-            WHERE ci.farmer_id = ?
-            GROUP BY o.order_id
-            ORDER BY o.order_date DESC
-            LIMIT 5
-        ");
-        $stmt->bind_param('i', $user_id);
-        $stmt->execute();
-        $recent_orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        
-    } elseif ($user_role === 'Buyer') {
-        // Buyer-specific data
-        $stmt = $conn->prepare("
-            SELECT 
-                COUNT(DISTINCT o.order_id) as total_orders,
-                COALESCE(SUM(ci.price * ci.quantity), 0) as total_spent,
-                (SELECT COUNT(*) FROM orders WHERE buyer_id = ? AND order_status = 'Pending') as pending_orders,
-                COUNT(DISTINCT ci.farmer_id) as farmers_connected
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-            WHERE o.buyer_id = ?
-        ");
-        $stmt->bind_param('ii', $user_id, $user_id);
-        $stmt->execute();
-        $dashboard_data = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        
-        // Get recent orders
-        $stmt = $conn->prepare("
-            SELECT o.order_id, o.order_date, o.order_status, 
-                   GROUP_CONCAT(DISTINCT c.crop_name SEPARATOR ', ') as crops,
-                   COUNT(DISTINCT ci.farmer_id) as farmers_count
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-            JOIN crops c ON ci.crop_id = c.crop_id
-            WHERE o.buyer_id = ?
-            GROUP BY o.order_id
-            ORDER BY o.order_date DESC
-            LIMIT 5
-        ");
-        $stmt->bind_param('i', $user_id);
-        $stmt->execute();
-        $recent_orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        $stmt->close();
-        
-    } 
-    // Get recent notifications for all users
+// Fetch data
+// For top crops sold
+$crops_result = $crops_result ?? [];
+$farmers_result = $farmers_result ?? [];
+$months = $months ?? [];
+$income_data = $income_data ?? [];
+$top_crops = [];
+// For Farmer: fetch crops sold with total quantity and income
+if ($user_role === 'Farmer') {
     $stmt = $conn->prepare("
-        SELECT notification_type, message, created_at 
-        FROM notifications 
-        WHERE user_id = ? 
-        ORDER BY created_at DESC 
-        LIMIT 5
+        SELECT c.crop_name,
+               IFNULL(SUM(oi.quantity),0) AS total_quantity,
+               IFNULL(SUM(oi.quantity * ci.price),0) AS total_income
+        FROM crops c
+        LEFT JOIN crops_inventory ci ON c.crop_id = ci.crop_id AND ci.farmer_id = ?
+        LEFT JOIN order_items oi ON ci.inventory_id = oi.inventory_id
+        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.order_status IN ('Delivered','Confirmed')
+        GROUP BY c.crop_id
+        ORDER BY total_quantity DESC
     ");
     $stmt->bind_param('i', $user_id);
     $stmt->execute();
-    $recent_notifications = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $crops_result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+} elseif ($user_role === 'Admin') {
+    // Admin: fetch all crops with total quantity and income
+    $stmt = $conn->prepare("
+        SELECT u.user_id, u.first_name, u.last_name,
+               IFNULL(SUM(oi.quantity * ci.price), 0) AS total_income
+        FROM users u
+        LEFT JOIN crops_inventory ci ON u.user_id = ci.farmer_id
+        LEFT JOIN order_items oi ON ci.inventory_id = oi.inventory_id
+        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.order_status IN ('Delivered','Confirmed')
+        WHERE u.role = 'Farmer'
+        GROUP BY u.user_id
+        ORDER BY total_income DESC
+    ");
+    $stmt->execute();
+    $farmers_result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+}
+
+$stmt->execute();
+$top_crops = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+// For top sellers (Admin only)
+$top_sellers = [];
+if ($user_role === 'Admin') {
+    $stmt = $conn->prepare("
+        SELECT u.first_name, u.last_name, SUM(oi.quantity * ci.price) as total_income
+        FROM order_items oi
+        JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+        JOIN orders o ON oi.order_id = o.order_id
+        JOIN users u ON ci.farmer_id = u.user_id
+        WHERE o.order_status IN ('Delivered','Confirmed')
+        GROUP BY ci.farmer_id
+        ORDER BY total_income DESC
+    ");
+    $stmt->execute();
+    $top_sellers = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
-
-    $notification_count = count($recent_notifications);
-    
-} catch (Exception $e) {
-    error_log("Dashboard error: " . $e->getMessage());
 }
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: user/login.php');
-    exit;
+// Monthly income chart
+$months = [];
+$income_data = [];
+
+if ($user_role === 'Farmer') {
+    $stmt = $conn->prepare("
+        SELECT DATE_FORMAT(o.order_date,'%Y-%m') as month, SUM(oi.quantity * ci.price) as income
+        FROM order_items oi
+        JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE ci.farmer_id = ? AND o.order_status IN ('Delivered','Confirmed')
+        GROUP BY month
+        ORDER BY month ASC
+    ");
+    $stmt->bind_param('i', $user_id);
+} else {
+    // Admin: total sales per month
+    $stmt = $conn->prepare("
+        SELECT DATE_FORMAT(o.order_date,'%Y-%m') as month, SUM(oi.quantity * ci.price) as income
+        FROM order_items oi
+        JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+        JOIN orders o ON oi.order_id = o.order_id
+        WHERE o.order_status IN ('Delivered','Confirmed')
+        GROUP BY month
+        ORDER BY month ASC
+    ");
 }
+
+$stmt->execute();
+$result = $stmt->get_result();
+while ($row = $result->fetch_assoc()) {
+    $months[] = $row['month'];
+    $income_data[] = round($row['income'], 2);
+}
+$stmt->close();
 ?>
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BANTAY-ANI | Farm-to-Market System</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reports | BANTAY-ANI</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
 
         :root {
             --green-dark: #0c5c4c;
@@ -726,10 +696,10 @@ if (!isset($_SESSION['user_id'])) {
         .stat-card, .section-card, .action-card {
             animation: fadeIn 0.3s ease-out;
         }
-    </style>
+</style>
 </head>
 <body>
-    <!-- Navigation -->
+<!-- Navigation -->
     <nav class="navbar">
         <div class="logo-container">
             <div class="logo">BA</div>
@@ -752,23 +722,20 @@ if (!isset($_SESSION['user_id'])) {
         
         <div class="nav-links">
             <?php if ($user_role === 'Farmer'): ?>
-                <a href="index.php" class="nav-link active">Dashboard</a>
+                <a href="index.php" class="nav-link">Dashboard</a>
                 <a href="./farmer/inventory.php" class="nav-link">My Inventory</a>
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="./farmer/benchmarking.php" class="nav-link">Pricing</a>
-                <a href="reports.php" class="nav-link">Reports</a>
+                <a href="reports.php" class="nav-link active">Reports</a>
                 <a href="announcements.php" class="nav-link">Announcements</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
-            <?php elseif ($user_role === 'Buyer'): ?>
-                <a href="index.php" class="nav-link active">Dashboard</a>
-                <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
-                <a href="./buyer/orders.php" class="nav-link">My Orders</a>
-                <a href="reports.php" class="nav-link">Reports</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
-                <a href="invoices.php" class="nav-link">Invoices</a>
-                <a href="./buyer/notifications.php" class="nav-link">Notifications</a>
+            <?php elseif ($user_role === 'Admin'): ?>
+                <a href="./admin/index.php" class="nav-link">Dashboard</a>
+                <a href="./admin/orders.php" class="nav-link">Orders</a>
+                <a href="reports.php" class="nav-link active">Reports</a>
+                <a href="./admin/announcements.php" class="nav-link">Announcements</a>
             <?php endif; ?>
         </div>
         
@@ -797,189 +764,127 @@ if (!isset($_SESSION['user_id'])) {
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <main class="container">
-        <!-- Welcome Banner -->
-        <div class="welcome-banner">
-            <h1>Welcome back, <?= htmlspecialchars($first_name) ?>!</h1>
-            <p>Manage your farm-to-market activities efficiently with BANTAY-ANI.</p>
-            <div class="role-badge"><?= $user_role ?></div>
-        </div>
+<main class="container">
+    <div class="welcome-banner">
+        <h1>Reports</h1>
+        <p>Insights and charts for <?= htmlspecialchars($first_name) ?> (<?= $user_role ?>)</p>
+    </div>
 
-        <!-- Dashboard Stats -->
-        <div class="dashboard-grid">
-            <?php if ($user_role === 'Farmer'): ?>
-                <div class="stat-card">
-                    <div class="stat-icon farmer">🌱</div>
-                    <div class="stat-value"><?= $dashboard_data['active_listings'] ?? 0 ?></div>
-                    <div class="stat-label">Active Listings</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon farmer">📦</div>
-                    <div class="stat-value"><?= $dashboard_data['total_inventory'] ?? 0 ?></div>
-                    <div class="stat-label">Total Inventory (kg)</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon farmer">💰</div>
-                    <div class="stat-value">₱<?= number_format($dashboard_data['avg_price'] ?? 0, 2) ?></div>
-                    <div class="stat-label">Average Price</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon farmer">⏳</div>
-                    <div class="stat-value"><?= $dashboard_data['pending_orders'] ?? 0 ?></div>
-                    <div class="stat-label">Pending Orders</div>
-                </div>
-            <?php elseif ($user_role === 'Buyer'): ?>
-                <div class="stat-card">
-                    <div class="stat-icon buyer">📋</div>
-                    <div class="stat-value"><?= $dashboard_data['total_orders'] ?? 0 ?></div>
-                    <div class="stat-label">Total Orders</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon buyer">💰</div>
-                    <div class="stat-value">₱<?= number_format($dashboard_data['total_spent'] ?? 0, 2) ?></div>
-                    <div class="stat-label">Total Spent</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon buyer">👨‍🌾</div>
-                    <div class="stat-value"><?= $dashboard_data['farmers_connected'] ?? 0 ?></div>
-                    <div class="stat-label">Farmers Connected</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon buyer">⏳</div>
-                    <div class="stat-value"><?= $dashboard_data['pending_orders'] ?? 0 ?></div>
-                    <div class="stat-label">Pending Orders</div>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- Main Content Grid -->
-        <div class="content-grid">
-            <!-- Left Column -->
-            <div>
-                <!-- Recent Orders Section -->
-                <div class="section-card">
-                    <div class="section-header">
-                        <h3 class="section-title">Recent Orders</h3>
-                        <a href="orders.php" class="view-all">View All →</a>
-                    </div>
-                    
-                    <?php if (!empty($recent_orders)): ?>
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Order ID</th>
-                                    <th>Date</th>
-                                    <th>Crops</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($recent_orders as $order): ?>
-                                    <tr>
-                                        <td>#<?= $order['order_id'] ?></td>
-                                        <td><?= date('M d, Y', strtotime($order['order_date'])) ?></td>
-                                        <td><?= htmlspecialchars($order['crops']) ?></td>
-                                        <td>
-                                            <span class="status-badge status-<?= strtolower($order['order_status']) ?>">
-                                                <?= $order['order_status'] ?>
-                                            </span>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    <?php else: ?>
-                        <p style="color: var(--text-light); text-align: center; padding: 32px;">
-                            No recent orders found.
-                        </p>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Action Cards -->
-                <div class="action-grid">
-                    <?php if ($user_role === 'Farmer'): ?>
-                        <a href="./farmer/inventory.php" class="action-card">
-                            <div class="action-icon">➕</div>
-                            <div class="action-title">Add New Crop</div>
-                            <div class="action-desc">List your crops for sale</div>
-                        </a>
-                        <a href="./farmer/inventory.php" class="action-card">
-                            <div class="action-icon">📅</div>
-                            <div class="action-title">Harvest Schedule</div>
-                            <div class="action-desc">Plan your harvest dates</div>
-                        </a>
-                        <a href="./farmer/cooperative.php" class="action-card">
-                            <div class="action-icon">🤝</div>
-                            <div class="action-title">Join Cooperative</div>
-                            <div class="action-desc">Pool crops with other farmers</div>
-                        </a>
-                        <a href="reports.php" class="action-card">
-                            <div class="action-icon">📊</div>
-                            <div class="action-title">View Reports</div>
-                            <div class="action-desc">Track your sales and growth</div>
-                        </a>
-                    <?php elseif ($user_role === 'Buyer'): ?>
-                        <a href="./buyer/marketplace.php" class="action-card">
-                            <div class="action-icon">🛒</div>
-                            <div class="action-title">Browse Marketplace</div>
-                            <div class="action-desc">Find fresh produce</div>
-                        </a>
-                        <a href="./buyer/orders.php" class="action-card">
-                            <div class="action-icon">📋</div>
-                            <div class="action-title">My Orders</div>
-                            <div class="action-desc">Track your purchases</div>
-                        </a>
-                        <a href="search.php" class="action-card">
-                            <div class="action-icon">👨‍🌾</div>
-                            <div class="action-title">Browse Farmers</div>
-                            <div class="action-desc">Connect with local farmers</div>
-                        </a>
-                        <a href="settings.php" class="action-card">
-                            <div class="action-icon">⚙️</div>
-                            <div class="action-title">Account Settings</div>
-                            <div class="action-desc">Update your preferences</div>
-                        </a>
-                    <?php endif; ?>
-                </div>
+    <div class="dashboard-grid">
+        <?php if ($user_role === 'Admin'): ?>
+            <div class="stat-card">
+                <div class="stat-icon admin">👨‍🌾</div>
+                <div class="stat-value"><?= count($farmers_result) ?></div>
+                <div class="stat-label">Farmers with Sales</div>
             </div>
-
-            <!-- Right Column -->
-            <div>
-                <!-- Announcements Widget -->
-                <?php include 'includes/announcement_widget.php'; ?>
-
-                <!-- Upcoming Harvests (Farmer Only) -->
-                <?php if ($user_role === 'Farmer' && !empty($upcoming_harvests)): ?>
-                    <div class="section-card" style="margin-top: 24px;">
-                        <div class="section-header">
-                            <h3 class="section-title">Upcoming Harvests</h3>
-                            <a href="./farmer/inventory.php" class="view-all">View All →</a>
-                        </div>
-                        
-                        <div class="quick-stats">
-                            <?php foreach ($upcoming_harvests as $harvest): ?>
-                                <div class="quick-stat">
-                                    <div class="quick-stat-label"><?= htmlspecialchars($harvest['crop_name']) ?></div>
-                                    <div class="quick-stat-value"><?= date('M d', strtotime($harvest['harvest_date'])) ?></div>
-                                    <div style="font-size: 0.9rem; color: var(--text-light);">
-                                        <?= $harvest['quantity'] ?> kg
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
+            <div class="stat-card">
+                <div class="stat-icon admin">🌾</div>
+                <div class="stat-value"><?= count($crops_result) ?></div>
+                <div class="stat-label">Crops Sold</div>
             </div>
-        </div>
-    </main>
+        <?php else: ?>
+            <div class="stat-card">
+                <div class="stat-icon farmer">🌾</div>
+                <div class="stat-label">Crops Sold</div>
+                <div class="stat-value"><?= count($crops_result) ?> units </div>
+                
+            </div>
+        <?php endif; ?>
+    </div>
 
-    <!-- Footer -->
-    <footer class="footer">
-        <p>© <?= date('Y') ?> BANTAY-ANI Farm-to-Market System. All rights reserved.</p>
-        <p style="margin-top: 8px; font-size: 0.85rem;">
-            Connecting farmers and buyers, reducing waste, supporting local agriculture.
-        </p>
-    </footer>
+    <div class="content-grid">
+        <?php if ($user_role === 'Admin' && !empty($farmers_result)): ?>
+            <div class="section-card">
+                <div class="section-header"><h3 class="section-title">Farmers Income (₱)</h3></div>
+                <canvas id="farmersChart"></canvas>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($crops_result)): ?>
+            <div class="section-card" style="margin-top:24px;">
+                <div class="section-header"><h3 class="section-title">Crops Sold</h3></div>
+                <canvas id="cropsChart"></canvas>
+            </div>
+        <?php endif; ?>
+
+        <!-- New Monthly Income / Sales Chart -->
+        <div class="section-card" style="margin-top:24px;">
+            <div class="section-header">
+                <h3 class="section-title"><?= $user_role === 'Farmer' ? 'Your Monthly Income (₱)' : 'Monthly Sales (₱)' ?></h3>
+            </div>
+            <canvas id="monthlyIncomeChart"></canvas>
+        </div>
+    </div>
+</main>
+
+<script>
+<?php if ($user_role === 'Admin' && !empty($farmers_result)): ?>
+const farmersCtx = document.getElementById('farmersChart').getContext('2d');
+new Chart(farmersCtx, {
+    type: 'bar',
+    data: {
+        labels: <?= json_encode(array_map(fn($f)=>$f['first_name'].' '.$f['last_name'],$farmers_result)) ?>,
+        datasets: [{
+            label: 'Income (₱)',
+            data: <?= json_encode(array_column($farmers_result,'total_income')) ?>,
+            backgroundColor: 'rgba(31,138,112,0.7)'
+        }]
+    },
+    options: {
+        responsive:true,
+        plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true}}
+    }
+});
+<?php endif; ?>
+
+<?php if (!empty($crops_result)): ?>
+const cropsCtx = document.getElementById('cropsChart').getContext('2d');
+new Chart(cropsCtx, {
+    type: 'bar',
+    data: {
+        labels: <?= json_encode(array_column($crops_result,'crop_name')) ?>,
+        datasets: [{
+            label: 'Quantity Sold (kg)',
+            data: <?= json_encode(array_column($crops_result,'total_quantity')) ?>,
+            backgroundColor: 'rgba(255,159,64,0.7)'
+        },{
+            label: 'Income (₱)',
+            data: <?= json_encode(array_column($crops_result,'total_income')) ?>,
+            backgroundColor: 'rgba(31,138,112,0.7)'
+        }]
+    },
+    options:{
+        responsive:true,
+        plugins:{legend:{display:true}},
+        scales:{y:{beginAtZero:true}}
+    }
+});
+<?php endif; ?>
+
+<?php if(!empty($months) && !empty($income_data)): ?>
+const monthlyCtx = document.getElementById('monthlyIncomeChart').getContext('2d');
+new Chart(monthlyCtx, {
+    type: 'bar',
+    data: {
+        labels: <?= json_encode($months) ?>,
+        datasets:[{
+            label: '<?= $user_role === 'Farmer' ? 'Income (₱)' : 'Sales (₱)' ?>',
+            data: <?= json_encode($income_data) ?>,
+            backgroundColor: 'rgba(31,138,112,0.7)'
+        }]
+    },
+    options:{
+        responsive:true,
+        plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true}}
+    }
+});
+<?php endif; ?>
+</script>
+
+<footer class="footer">
+    <p>© <?= date('Y') ?> BANTAY-ANI Farm-to-Market System. All rights reserved.</p>
+</footer>
 </body>
 </html>
