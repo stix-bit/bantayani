@@ -427,6 +427,7 @@ $is_buyer_verified = ($buyer_profile['verified'] ?? 0) || ($user['is_verified'] 
                 <a href="orders.php">My Orders</a>
                 <a href="profile.php" style="background: rgba(31, 138, 112, 0.1);">Profile</a>
                 <a href="ratings.php">Ratings</a>
+                <a href="notifications.php">Notifications</a>
                 <a href="/bantayani/user/logout.php">Logout</a>
             </div>
         </div>

@@ -63,6 +63,7 @@ $available = (float)($row['total_quantity'] ?? 0);
         <a href="orders.php" class="nav-link">My Orders</a>
         <a href="profile.php" class="nav-link">Profile</a>
         <a href="ratings.php" class="nav-link">Ratings</a>
+        <a href="notifications.php" class="nav-link">Notifications</a>
     </div>
     <div class="user-menu">
         <?php

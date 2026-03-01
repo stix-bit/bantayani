@@ -86,6 +86,7 @@ $orders = $stmt->get_result();
         <a href="orders.php" class="nav-link active">Orders</a>
         <a href="benchmarking.php" class="nav-link">Benchmarking</a>
         <a href="profile.php" class="nav-link">Profile</a>
+        <a href="notifications.php" class="nav-link">Notifications</a>
     </div>
     
     <div class="user-menu">

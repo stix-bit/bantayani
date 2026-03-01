@@ -593,6 +593,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <a href="inventory.php">Inventory</a>
                 <a href="orders.php">Orders</a>
                 <a href="profile.php" style="background: rgba(31, 138, 112, 0.1);">Profile</a>
+                <a href="notifications.php">Notifications</a>
                 <a href="/bantayani/user/logout.php">Logout</a>
             </div>
         </div>

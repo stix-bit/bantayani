@@ -141,6 +141,7 @@ function getStatus($farmer, $avg) {
             <li><a href="inventory.php" class="nav-link"><span class="nav-icon">🌾</span><span>Inventory</span></a></li>
             <li><a href="orders.php" class="nav-link"><span class="nav-icon">📦</span><span>Orders</span></a></li>
             <li><a href="profile.php" class="nav-link"><span class="nav-icon">👤</span><span>Profile</span></a></li>
+            <li><a href="notifications.php" class="nav-link"><span class="nav-icon">🔔</span><span>Notifications</span></a></li>
         </ul>
     </div>
     <div class="nav-section">

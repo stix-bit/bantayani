@@ -717,6 +717,7 @@ if (!isset($_SESSION['user_id'])) {
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="./farmer/benchmarking.php" class="nav-link">Pricing</a>
                 <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
             <?php elseif ($user_role === 'Buyer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
@@ -724,6 +725,7 @@ if (!isset($_SESSION['user_id'])) {
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
                 <a href="search.php" class="nav-link">Farmers</a>
                 <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="./buyer/notifications.php" class="nav-link">Notifications</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
             <?php endif; ?>
         </div>
