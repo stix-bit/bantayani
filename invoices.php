@@ -41,11 +41,13 @@ if ($user_role === 'Buyer') {
     $query = "
         SELECT i.*, 
                CONCAT(u.first_name, ' ', u.last_name) as buyer_name,
-               bp.business_name,
+               c.company_name,
                o.order_status
         FROM invoices i
         LEFT JOIN users u ON i.buyer_id = u.user_id
         LEFT JOIN buyer_profiles bp ON i.buyer_id = bp.buyer_id
+        LEFT JOIN company_buyers cb ON cb.buyer_id = bp.buyer_id
+        LEFT JOIN companies c ON c.company_id = cb.company_id
         LEFT JOIN orders o ON i.order_id = o.order_id
         WHERE i.farmer_id = ?
         ORDER BY i.created_at DESC
@@ -538,7 +540,7 @@ if (isset($_GET['logout'])) {
                                         <small style="color: var(--text-light);"><?= htmlspecialchars($invoice['farm_name'] ?? '') ?></small>
                                     <?php else: ?>
                                         <?= htmlspecialchars($invoice['buyer_name']) ?><br>
-                                        <small style="color: var(--text-light);"><?= htmlspecialchars($invoice['business_name'] ?? '') ?></small>
+                                        <small style="color: var(--text-light);"><?= htmlspecialchars($invoice['company_name'] ?? '') ?></small>
                                     <?php endif; ?>
                                 </td>
                                 <td><strong>₱<?= number_format($invoice['total_amount'], 2) ?></strong></td>

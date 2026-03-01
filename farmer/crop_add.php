@@ -1,8 +1,9 @@
 <?php
 session_start();
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/dynamic_pricing.php';
 
-// Check if farmer is logged in
+// Check farmer login
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
     header('Location: ../user/login.php');
     exit;
@@ -11,30 +12,53 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
 $farmer_id = $_SESSION['user_id'];
 
 // Fetch crop categories
-$categories_query = "SELECT category_id, category_name FROM crop_categories ORDER BY display_order, category_name";
-$categories_result = $conn->query($categories_query);
+$categories_result = $conn->query("SELECT category_id, category_name FROM crop_categories ORDER BY display_order, category_name");
 
 $errors = [];
 $success_message = '';
 
+$old_inputs = [
+    'category_id' => '',
+    'crop_id' => '',
+    'quantity' => '',
+    'price' => '',
+    'harvest_date' => '',
+];
+
+// Store uploaded images for sticky preview
+$sticky_images = [];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $category_id = intval($_POST['category_id'] ?? 0);
-    $crop_id = intval($_POST['crop_id'] ?? 0);
-    $quantity = floatval($_POST['quantity'] ?? 0);
-    $unit = $_POST['unit'] ?? 'kg';
-    $price = floatval($_POST['price'] ?? 0);
-    $harvest_date = $_POST['harvest_date'] ?? '';
+    $old_inputs['category_id'] = $_POST['category_id'] ?? '';
+    $old_inputs['crop_id'] = $_POST['crop_id'] ?? '';
+    $old_inputs['quantity'] = $_POST['quantity'] ?? '';
+    $old_inputs['price'] = $_POST['price'] ?? '';
+    $old_inputs['harvest_date'] = $_POST['harvest_date'] ?? '';
+
+    $category_id = intval($old_inputs['category_id']);
+    $crop_id = intval($old_inputs['crop_id']);
+    $quantity = floatval($old_inputs['quantity']);
+    $price = floatval($old_inputs['price']);
+    $harvest_date = $old_inputs['harvest_date'];
 
     // Validation
     if ($category_id <= 0) $errors[] = 'Please select a crop category.';
     if ($crop_id <= 0) $errors[] = 'Please select a crop.';
     if ($quantity <= 0) $errors[] = 'Quantity must be greater than 0.';
-    if (!in_array($unit, ['kg', 'g', 'pieces', 'sack', 'bundle'])) $errors[] = 'Invalid unit selected.';
     if ($price < 0) $errors[] = 'Price cannot be negative.';
     if ($harvest_date === '') $errors[] = 'Harvest date is required.';
 
-    // Handle image uploads
-    $uploaded_images = [];
+    if ($crop_id > 0 && $price > 0) {
+    $priceRange = getDynamicPriceRange($conn, $crop_id);
+    if ($priceRange['has_data'] && ($price < $priceRange['price_min'] || $price > $priceRange['price_max'])) {
+        $errors[] = sprintf(
+            "Price ₱%.2f is outside the allowed range (₱%.2f - ₱%.2f). Please enter a price within the range.",
+            $price, $priceRange['price_min'], $priceRange['price_max']
+        );
+    }
+}
+
+    // Handle image uploads (only keep successful uploads for sticky preview)
     if (isset($_FILES['crop_images']) && !empty($_FILES['crop_images']['name'][0])) {
         $upload_dir = __DIR__ . '/../images/uploads/crops/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
@@ -49,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $filename = 'crop_' . uniqid() . '.' . $extension;
                         $target_path = $upload_dir . $filename;
                         if (move_uploaded_file($_FILES['crop_images']['tmp_name'][$key], $target_path)) {
-                            $uploaded_images[] = [
+                            $sticky_images[] = [
                                 'path' => 'images/uploads/crops/' . $filename,
                                 'is_primary' => $key === 0 ? 1 : 0
                             ];
@@ -58,26 +82,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
-        if (empty($uploaded_images)) $errors[] = 'Failed to upload images. Please check file formats.';
+        if (empty($sticky_images) && !empty($_FILES['crop_images']['name'][0])) {
+            $errors[] = 'Failed to upload images. Please check file formats.';
+        }
     }
 
+    // If no errors, insert into DB
     if (empty($errors)) {
         try {
-            // Insert into crops_inventory
-            $stmt = $conn->prepare("
-                INSERT INTO crops_inventory 
-                (farmer_id, crop_id, quantity, unit, price, harvest_date) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->bind_param('iisdss', $_SESSION['user_id'], $crop_id, $quantity, $unit, $price, $harvest_date);
+            $stmt = $conn->prepare("INSERT INTO crops_inventory (farmer_id, crop_id, quantity, price, harvest_date) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param('iidds', $farmer_id, $crop_id, $quantity, $price, $harvest_date);
             $stmt->execute();
             $inventory_id = $conn->insert_id;
             $stmt->close();
 
-            // Insert images
-            if (!empty($uploaded_images)) {
+            if (!empty($sticky_images)) {
                 $stmt = $conn->prepare("INSERT INTO crop_images (inventory_id, image_path, is_primary) VALUES (?, ?, ?)");
-                foreach ($uploaded_images as $img) {
+                foreach ($sticky_images as $img) {
                     $stmt->bind_param('isi', $inventory_id, $img['path'], $img['is_primary']);
                     $stmt->execute();
                 }
@@ -101,10 +122,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Add Crop | BantayAni</title>
 <style>
-/* All styles same as before */
-:root {--green-dark:#0c5c4c;--green:#1f8a70;--beige:#f6f1e9;--orange:#f28705;--text:#1f2933;}
+:root{--green-dark:#0c5c4c;--green:#1f8a70;--beige:#f6f1e9;--orange:#f28705;--text:#1f2933;}
 *{box-sizing:border-box;}
-body{margin:0;font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;background:linear-gradient(130deg, rgba(12,92,76,0.07), rgba(242,135,5,0.12));color:var(--text);min-height:100vh;}
+body{margin:0;font-family:'Segoe UI',sans-serif;background:linear-gradient(130deg, rgba(12,92,76,0.07), rgba(242,135,5,0.12));color:var(--text);min-height:100vh;}
 .container{max-width:960px;margin:0 auto;padding:40px 16px;}
 .header{background:white;padding:24px;border-radius:16px;box-shadow:0 8px 24px rgba(12,92,76,0.15);margin-bottom:24px;}
 .header h1{margin:0 0 8px;color:var(--green-dark);}
@@ -121,6 +141,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);b
 .image-preview img{width:100%;height:100%;object-fit:cover;}
 .image-preview .remove-btn{position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;}
 .image-preview .primary-badge{position:absolute;top:2px;left:2px;background:var(--green);color:white;font-size:10px;padding:2px 4px;border-radius:4px;font-weight:bold;}
+.dynamic-price-box{margin-top:6px;padding:6px 10px;background:rgba(31,138,112,0.1);border:1px solid rgba(31,138,112,0.4);border-radius:6px;font-size:0.95rem;color:var(--green-dark);}
 .btn{background:var(--green);color:white;border:none;padding:14px 28px;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.2s ease;}
 .btn:hover{background:var(--green-dark);transform:translateY(-1px);}
 .alert{padding:16px;border-radius:12px;margin-bottom:24px;}
@@ -154,9 +175,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);b
 <select id="category_id" name="category_id" required>
 <option value="">Select Category</option>
 <?php while($cat = $categories_result->fetch_assoc()): ?>
-<option value="<?= $cat['category_id'] ?>" <?= (isset($_POST['category_id']) && $_POST['category_id']==$cat['category_id'])?'selected':''; ?>>
-<?= htmlspecialchars($cat['category_name']); ?>
-</option>
+<option value="<?= $cat['category_id'] ?>" <?= ($old_inputs['category_id']==$cat['category_id'])?'selected':''; ?>>
+<?= htmlspecialchars($cat['category_name']); ?></option>
 <?php endwhile; ?>
 </select>
 </div>
@@ -170,30 +190,20 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);b
 
 <div class="form-group">
 <label for="quantity">Quantity</label>
-<input type="number" id="quantity" name="quantity" step="0.01" min="0.01" value="<?= htmlspecialchars($_POST['quantity'] ?? ''); ?>" required>
-</div>
-
-<div class="form-group">
-<label for="unit">Unit</label>
-<select id="unit" name="unit" required>
-<option value="kg" <?= (isset($_POST['unit'])&&$_POST['unit']==='kg')?'selected':''; ?>>Kilograms (kg)</option>
-<option value="g" <?= (isset($_POST['unit'])&&$_POST['unit']==='g')?'selected':''; ?>>Grams (g)</option>
-<option value="pieces" <?= (isset($_POST['unit'])&&$_POST['unit']==='pieces')?'selected':''; ?>>Pieces</option>
-<option value="sack" <?= (isset($_POST['unit'])&&$_POST['unit']==='sack')?'selected':''; ?>>Sack</option>
-<option value="bundle" <?= (isset($_POST['unit'])&&$_POST['unit']==='bundle')?'selected':''; ?>>Bundle</option>
-</select>
+<input type="number" id="quantity" name="quantity" step="0.01" min="0.01" value="<?= htmlspecialchars($old_inputs['quantity']); ?>" required>
 </div>
 
 <div class="form-group">
 <label for="price">Price per Unit (₱)</label>
-<input type="number" id="price" name="price" step="0.01" min="0" value="<?= htmlspecialchars($_POST['price'] ?? ''); ?>" required>
+<input type="number" id="price" name="price" step="0.01" min="0" value="<?= htmlspecialchars($old_inputs['price']); ?>" required>
+<div id="dynamicPriceInfo" class="dynamic-price-box" style="display:none;">
+Recommended: ₱<span id="recommendedPrice">0.00</span> | Min: ₱<span id="minPrice">0.00</span> | Max: ₱<span id="maxPrice">0.00</span>
+</div>
 </div>
 
 <div class="form-group">
 <label for="harvest_date">Harvest Date</label>
-<input type="date" id="harvest_date" name="harvest_date" value="<?= htmlspecialchars(!empty($_POST['harvest_date'])?date('Y-m-d', strtotime($_POST['harvest_date'])):''); ?>" required>
-</div>
-
+<input type="date" id="harvest_date" name="harvest_date" value="<?= htmlspecialchars($old_inputs['harvest_date']); ?>" required>
 </div>
 
 <div class="form-group">
@@ -201,17 +211,26 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);b
 <div class="file-input">
 <input type="file" name="crop_images[]" id="crop_images" accept="image/*" multiple>
 <p>Upload up to 5 photos (JPG, PNG, GIF, WEBP). First image will be primary.</p>
-<div id="image-preview" class="image-preview-container"></div>
+<div id="image-preview" class="image-preview-container">
+<?php foreach($sticky_images as $img): ?>
+<div class="image-preview">
+<img src="<?= htmlspecialchars($img['path']); ?>" alt="">
+<?php if($img['is_primary']): ?><div class="primary-badge">PRIMARY</div><?php endif; ?>
+<button type="button" class="remove-btn" onclick="this.parentElement.remove();">×</button>
+</div>
+<?php endforeach; ?>
+</div>
 </div>
 </div>
 
+</div>
 <button type="submit" class="btn">Add to Inventory</button>
 </form>
 </div>
 </div>
 
 <script>
-// Image preview code (same as before)
+// Image preview on file selection
 document.getElementById('crop_images').addEventListener('change', function(e) {
     const container = document.getElementById('image-preview');
     container.innerHTML = '';
@@ -232,24 +251,49 @@ document.getElementById('crop_images').addEventListener('change', function(e) {
     });
 });
 
-// AJAX to load crops based on category
+// Load crops based on category
 document.getElementById('category_id').addEventListener('change', function() {
     const categoryId = this.value;
     const cropSelect = document.getElementById('crop_id');
     cropSelect.innerHTML = '<option value="">Loading...</option>';
-
     fetch('get_crops.php?category_id='+categoryId)
-    .then(res => res.json())
-    .then(data => {
-        cropSelect.innerHTML = '<option value="">Select Crop</option>';
+    .then(res=>res.json())
+    .then(data=>{
+        cropSelect.innerHTML='<option value="">Select Crop</option>';
         data.forEach(crop=>{
-            const opt = document.createElement('option');
-            opt.value = crop.crop_id;
-            opt.textContent = crop.crop_name;
+            const opt=document.createElement('option');
+            opt.value=crop.crop_id;
+            opt.textContent=crop.crop_name;
+            if(crop.crop_id == <?= json_encode($old_inputs['crop_id']); ?>) opt.selected = true;
             cropSelect.appendChild(opt);
         });
     });
 });
+
+// Dynamic pricing display
+document.getElementById('crop_id').addEventListener('change', function() {
+    const cropId = this.value;
+    const infoBox = document.getElementById('dynamicPriceInfo');
+    if(!cropId){ infoBox.style.display='none'; return; }
+    fetch('get_dynamic_price.php?crop_id='+cropId)
+    .then(res=>res.json())
+    .then(data=>{
+        if(data.has_data){
+            document.getElementById('recommendedPrice').textContent = parseFloat(data.recommended).toFixed(2);
+            document.getElementById('minPrice').textContent = parseFloat(data.price_min).toFixed(2);
+            document.getElementById('maxPrice').textContent = parseFloat(data.price_max).toFixed(2);
+            infoBox.style.display='block';
+        }else{
+            infoBox.style.display='none';
+        }
+    });
+});
+
+// Trigger change on page load to restore crop selection
+if(<?= json_encode($old_inputs['category_id']); ?>){
+    const event = new Event('change');
+    document.getElementById('category_id').dispatchEvent(event);
+}
 </script>
 </body>
 </html>

@@ -46,11 +46,28 @@ $cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
 if ($cols && $cols->num_rows > 0) $has_pool_price = true;
 
 // Get cooperative pools (large volume – any buyer can see and order)
-$pool_sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, p.unit" . ($has_pool_price ? ", p.unit_price" : "") . "
-             FROM cooperative_pools p
-             JOIN crops c ON p.crop_id = c.crop_id
-             WHERE (p.total_quantity IS NULL OR p.total_quantity > 0)
-             ORDER BY c.crop_name";
+$pool_sql = "
+    SELECT 
+        p.pool_id, 
+        p.crop_id, 
+        p.total_quantity, 
+        p.unit
+        " . ($has_pool_price ? ", p.unit_price" : "") . ",
+        c.crop_name,
+        (
+            SELECT ci_img.image_path
+            FROM crops_inventory ci
+            JOIN crop_images ci_img 
+                ON ci.inventory_id = ci_img.inventory_id
+            WHERE ci.crop_id = p.crop_id
+            ORDER BY ci_img.is_primary DESC, ci_img.image_id ASC
+            LIMIT 1
+        ) AS pool_image
+    FROM cooperative_pools p
+    JOIN crops c ON p.crop_id = c.crop_id
+    WHERE (p.total_quantity IS NULL OR p.total_quantity > 0)
+    ORDER BY c.crop_name
+";
 $pools_result = $conn->query($pool_sql);
 $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
 
@@ -118,9 +135,17 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
             <div class="marketplace" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;">
                 <?php foreach ($pools as $p): ?>
                 <div class="card" style="border-left: 4px solid #1f8a70;">
-                    <div style="width: 100%; height: 120px; background: #f9fafb; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; color: #666;">
-                        <i class="fa-solid fa-users" style="font-size: 2rem;"></i>
-                    </div>
+                    <?php if (!empty($p['pool_image'])): ?>
+                        <div style="width: 100%; height: 120px; margin-bottom: 12px; overflow: hidden; border-radius: 8px;">
+                            <img src="../<?= htmlspecialchars($p['pool_image']) ?>" 
+                                alt="<?= htmlspecialchars($p['crop_name']) ?>" 
+                                style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                    <?php else: ?>
+                        <div style="width: 100%; height: 120px; background: #f9fafb; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; color: #666;">
+                            <i class="fa-solid fa-image" style="font-size: 2rem;"></i>
+                        </div>
+                    <?php endif; ?>
                     <b><?= htmlspecialchars($p['crop_name']) ?></b>
                     <p style="margin: 6px 0;">Cooperative pool</p>
                     <?php if ($has_pool_price && isset($p['unit_price']) && $p['unit_price'] != null): ?>

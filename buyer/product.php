@@ -77,6 +77,32 @@ $stmt->bind_param("i", $farmer_id);
 $stmt->execute();
 $seller_reviews = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+
+// Product-specific ratings summary and reviews
+$product_rating = ['avg_rating' => null, 'total_ratings' => 0];
+$product_reviews = [];
+
+$stmt = $conn->prepare("
+    SELECT AVG(rating) AS avg_rating, COUNT(*) AS total_ratings
+    FROM ratings
+    WHERE inventory_id = ?
+");
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$product_rating = $stmt->get_result()->fetch_assoc() ?: $product_rating;
+$stmt->close();
+
+$stmt = $conn->prepare("
+    SELECT r.rating, r.comment, r.created_at, u.first_name
+    FROM ratings r
+    JOIN users u ON r.buyer_id = u.user_id
+    WHERE r.inventory_id = ?
+    ORDER BY r.created_at DESC
+");
+$stmt->bind_param("i", $id);
+$stmt->execute();
+$product_reviews = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -475,42 +501,49 @@ $stmt->close();
                 </form>
             </div>
 
-            <div class="product-card">
-                <h2>Seller rating</h2>
-                <?php if (!empty($seller_rating['total_ratings']) && $seller_rating['avg_rating'] !== null): ?>
-                    <div class="rating-badge">
-                        ⭐ <?= number_format((float) $seller_rating['avg_rating'], 1) ?>
-                        (<?= (int) $seller_rating['total_ratings'] ?> review<?= (int) $seller_rating['total_ratings'] !== 1 ? 's' : '' ?>)
-                    </div>
-                    <?php if (!empty($seller_reviews)): ?>
-                        <ul class="reviews-list">
-                            <?php foreach ($seller_reviews as $rev): ?>
-                                <li>
-                                    <strong><?= (int) $rev['rating'] ?> ★</strong>
-                                    <?php if (!empty($rev['comment'])): ?>
-                                        — <?= htmlspecialchars($rev['comment']) ?>
-                                    <?php endif; ?>
-                                    <div class="review-meta">
-                                        <?= htmlspecialchars($rev['first_name'] ?? 'Buyer') ?>
-                                        · <?= date('M j, Y', strtotime($rev['created_at'])) ?>
-                                    </div>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-                    <?php else: ?>
-                        <p style="color: var(--text-light);">No written reviews yet.</p>
-                    <?php endif; ?>
-                <?php else: ?>
-                    <p style="color: var(--text-light);">No ratings yet for this seller.</p>
-                <?php endif; ?>
-            </div>
-        </div>
-
-        <div class="product-card" style="margin-bottom: 24px;">
+            <div class="product-card" style="margin-top:24px;">
             <h2>Product reviews</h2>
-            <div class="reviews-placeholder">
-                Reviews for this product will appear here once available.
-            </div>
+
+            <?php if (!empty($product_reviews)): ?>
+                <ul class="reviews-list">
+                    <?php foreach ($product_reviews as $rev): ?>
+                        <li>
+                            <strong><?= (int)$rev['rating'] ?> ★</strong>
+                            <?php if (!empty($rev['comment'])): ?>
+                                — <?= htmlspecialchars($rev['comment']) ?>
+                            <?php endif; ?>
+                            <div class="review-meta">
+                                <?= htmlspecialchars($rev['first_name'] ?? 'Buyer') ?> · <?= date('M j, Y', strtotime($rev['created_at'])) ?>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php else: ?>
+                <div class="reviews-placeholder">
+                    No reviews yet for this product. Be the first to rate!
+                </div>
+            <?php endif; ?>
+
+            <!-- Review submission form -->
+            <form method="post" action="submit_rating.php" style="margin-top:16px;">
+                <input type="hidden" name="inventory_id" value="<?= (int)$row['inventory_id'] ?>">
+                <input type="hidden" name="farmer_id" value="<?= (int)$farmer_id ?>">
+
+                <label for="rating">Your rating:</label>
+                <select name="rating" id="rating" required>
+                    <option value="">Select rating</option>
+                    <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                    <option value="4">⭐⭐⭐⭐ (4)</option>
+                    <option value="3">⭐⭐⭐ (3)</option>
+                    <option value="2">⭐⭐ (2)</option>
+                    <option value="1">⭐ (1)</option>
+                </select>
+
+                <textarea name="comment" placeholder="Leave a comment (optional)" style="width:100%; margin-top:8px; padding:8px; border-radius:8px; border:1px solid #ddd;"></textarea>
+
+                <button type="submit" class="btn" style="margin-top:8px;">Submit Review</button>
+            </form>
+        </div>
         </div>
     </div>
 </body>
