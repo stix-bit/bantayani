@@ -41,27 +41,46 @@ if ($user_role === 'Farmer') {
     $stmt->bind_param('i', $user_id);
     $stmt->execute();
     $crops_result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-} elseif ($user_role === 'Admin') {
-    // Admin: fetch all crops with total quantity and income
+ } elseif ($user_role === 'Admin') {
+
+    // 1️⃣ Get farmer income
     $stmt = $conn->prepare("
         SELECT u.user_id, u.first_name, u.last_name,
                IFNULL(SUM(oi.quantity * ci.price), 0) AS total_income
         FROM users u
         LEFT JOIN crops_inventory ci ON u.user_id = ci.farmer_id
         LEFT JOIN order_items oi ON ci.inventory_id = oi.inventory_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.order_status IN ('Delivered','Confirmed')
+        LEFT JOIN orders o 
+            ON oi.order_id = o.order_id 
+            AND o.order_status IN ('Delivered','Confirmed')
         WHERE u.role = 'Farmer'
         GROUP BY u.user_id
         ORDER BY total_income DESC
     ");
     $stmt->execute();
     $farmers_result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
 
+
+    // 2️⃣ Get ALL crops sold (THIS WAS MISSING)
+    $stmt = $conn->prepare("
+        SELECT c.crop_name,
+               IFNULL(SUM(oi.quantity),0) AS total_quantity,
+               IFNULL(SUM(oi.quantity * ci.price),0) AS total_income
+        FROM crops c
+        LEFT JOIN crops_inventory ci ON c.crop_id = ci.crop_id
+        LEFT JOIN order_items oi ON ci.inventory_id = oi.inventory_id
+        LEFT JOIN orders o 
+            ON oi.order_id = o.order_id 
+            AND o.order_status IN ('Delivered','Confirmed')
+        GROUP BY c.crop_id
+        ORDER BY total_quantity DESC
+    ");
+    $stmt->execute();
+    $crops_result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
 }
 
-$stmt->execute();
-$top_crops = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
 
 // For top sellers (Admin only)
 $top_sellers = [];
@@ -803,6 +822,7 @@ $stmt->close();
         <?php if (!empty($crops_result)): ?>
             <div class="section-card" style="margin-top:24px;">
                 <div class="section-header"><h3 class="section-title">Crops Sold</h3></div>
+                <div class="stat-value"><?= count($crops_result) ?> units </div>
                 <canvas id="cropsChart"></canvas>
             </div>
         <?php endif; ?>
