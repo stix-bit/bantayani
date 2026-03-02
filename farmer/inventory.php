@@ -5,9 +5,45 @@ require_once "../includes/config.php";
 $farmer_id = $_SESSION['user_id'];
 
 // weather alerts - fetch active alerts only (last 24 hours)
+
+?>
+
+<?php
+// Get latest weather data for farmer's region (same as API refresh)
+require_once '../includes/weather_helper.php';
+$current_weather = [];
+$weather_service = new WeatherService($conn);
+$region = null;
+$region_stmt = $conn->prepare("SELECT region FROM farmer_profiles WHERE farmer_id = ?");
+if ($region_stmt) {
+    $region_stmt->bind_param('i', $farmer_id);
+    $region_stmt->execute();
+    $region_result = $region_stmt->get_result();
+    if ($region_result) {
+        $row = $region_result->fetch_assoc();
+        if ($row && !empty($row['region'])) {
+            $region = $row['region'];
+        }
+    }
+    $region_stmt->close();
+}
+list($latitude, $longitude) = $weather_service->getRegionCoordinates($region);
+
+$stmt = $conn->prepare("
+    SELECT * FROM weather_data 
+    WHERE latitude = ? AND longitude = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+");
+$stmt->bind_param("dd", $latitude, $longitude);
+$stmt->execute();
+$weather_result = $stmt->get_result()->fetch_assoc();
+if ($weather_result && $weather_result['data_json']) {
+    $current_weather = json_decode($weather_result['data_json'], true)['current'] ?? [];
+}
 $weather_alerts = [];
 
-if (!empty($current_weather)) {
+if (!empty($current_weather) && empty($_SESSION['weather_alerts_cleared'])) {
     $temp  = $current_weather['temperature_2m']       ?? null;
     $wind  = $current_weather['wind_speed_10m']       ?? null;
     $rain  = $current_weather['precipitation']        ?? 0;
@@ -109,41 +145,8 @@ if (!empty($current_weather)) {
         }
     }
 }
-?>
 
-<?php
-// Get latest weather data for farmer's region (same as API refresh)
-require_once '../includes/weather_helper.php';
-$current_weather = [];
-$weather_service = new WeatherService($conn);
-$region = null;
-$region_stmt = $conn->prepare("SELECT region FROM farmer_profiles WHERE farmer_id = ?");
-if ($region_stmt) {
-    $region_stmt->bind_param('i', $farmer_id);
-    $region_stmt->execute();
-    $region_result = $region_stmt->get_result();
-    if ($region_result) {
-        $row = $region_result->fetch_assoc();
-        if ($row && !empty($row['region'])) {
-            $region = $row['region'];
-        }
-    }
-    $region_stmt->close();
-}
-list($latitude, $longitude) = $weather_service->getRegionCoordinates($region);
 
-$stmt = $conn->prepare("
-    SELECT * FROM weather_data 
-    WHERE latitude = ? AND longitude = ?
-    ORDER BY created_at DESC
-    LIMIT 1
-");
-$stmt->bind_param("dd", $latitude, $longitude);
-$stmt->execute();
-$weather_result = $stmt->get_result()->fetch_assoc();
-if ($weather_result && $weather_result['data_json']) {
-    $current_weather = json_decode($weather_result['data_json'], true)['current'] ?? [];
-}
 
 // yield analytics
 $analytics_stmt = $conn->prepare("
@@ -1235,6 +1238,12 @@ function clearAlerts() {
     });
 }
 </script>
+
+<?php
+if (!empty($_SESSION['weather_alerts_cleared'])) {
+    unset($_SESSION['weather_alerts_cleared']);
+}
+?>
 
 </body>
 </html>
