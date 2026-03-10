@@ -27,7 +27,11 @@ $stmt->close();
 $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
 
 // Profile URL by role (for avatar link)
-$profile_url = $user_role === 'Farmer' ? './farmer/profile.php' : './buyer/profile.php';
+if ($user_role === 'Farmer') {
+    $profile_url = './farmer/profile.php';
+} elseif ($user_role === 'Buyer') {
+    $profile_url = './buyer/profile.php';
+} 
 
 // Fetch dashboard data based on user role
 $dashboard_data = [];
@@ -765,21 +769,21 @@ if (!isset($_SESSION['user_id'])) {
             <?php elseif ($user_role === 'Buyer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="marketplace.php" class="nav-link">Marketplace</a>
+                <a href="./buyer/cart.php" class="nav-link">Cart</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
-                <a href="reports.php" class="nav-link">Reports</a>
                 <a href="announcements.php" class="nav-link">Announcements</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./buyer/notifications.php" class="nav-link">Notifications</a>
             <?php endif; ?>
         </div>
         
-        <div class="user-menu"
-            <?php
-                $profile_img = trim($profile_img ?? '');
-                $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
-                $public_path   = '/bantayani/' . $profile_img;
-            ?>
+        <?php
+            $profile_img = trim($profile_img ?? '');
+            $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
+            $public_path   = '/bantayani/' . $profile_img;
+        ?>
 
+        <div class="user-menu">
             <a href="<?= htmlspecialchars($profile_url) ?>" title="View Profile">
                 <div class="user-avatar">
                     <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>

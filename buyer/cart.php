@@ -9,37 +9,82 @@ if (!isset($_SESSION['cart'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == "POST") {
-    $pool_id = (int)($_POST['pool_id'] ?? 0);
-    $inventory_id = (int)($_POST['inventory_id'] ?? 0);
-    $qty_posted = (float)($_POST['qty'] ?? 0);
+    $action = $_POST['action'] ?? '';
 
-    if ($pool_id > 0 && $qty_posted > 0) {
-        // Add cooperative pool item (key: p_POOL_ID)
-        $key = 'p_' . $pool_id;
-        $stmt = $conn->prepare("SELECT total_quantity FROM cooperative_pools WHERE pool_id = ?");
-        $stmt->bind_param("i", $pool_id);
-        $stmt->execute();
-        $stmt->bind_result($available);
-        $stmt->fetch();
-        $stmt->close();
-        $current = isset($_SESSION['cart'][$key]) ? (float)$_SESSION['cart'][$key] : 0;
-        $newQty = $current + $qty_posted;
-        if (is_numeric($available) && $newQty > (float)$available) $newQty = (float)$available;
-        $_SESSION['cart'][$key] = $newQty;
-    } elseif ($inventory_id > 0 && $qty_posted > 0) {
-        // Add individual farmer inventory item
-        $stmtInv = $conn->prepare("SELECT quantity FROM crops_inventory WHERE inventory_id = ?");
-        $stmtInv->bind_param("i", $inventory_id);
-        $stmtInv->execute();
-        $stmtInv->bind_result($available);
-        $stmtInv->fetch();
-        $stmtInv->close();
-        $current = isset($_SESSION['cart'][$inventory_id]) ? (int)$_SESSION['cart'][$inventory_id] : 0;
-        $newQty = $current + (int)$qty_posted;
-        if (is_numeric($available) && $newQty > $available) $newQty = (int)$available;
-        $_SESSION['cart'][$inventory_id] = $newQty;
+    if ($action === 'update_quantity') {
+        $key = $_POST['cart_key'] ?? '';
+        $delta = (int)($_POST['delta'] ?? 0);
+
+        if ($key !== '' && $delta !== 0 && isset($_SESSION['cart'][$key])) {
+            $current = (float)$_SESSION['cart'][$key];
+            $newQty = $current + $delta;
+
+            if (strpos($key, 'p_') === 0) {
+                $pool_id = (int)substr($key, 2);
+                $stmt = $conn->prepare("SELECT total_quantity FROM cooperative_pools WHERE pool_id = ?");
+                $stmt->bind_param("i", $pool_id);
+                $stmt->execute();
+                $stmt->bind_result($available);
+                $stmt->fetch();
+                $stmt->close();
+
+                if (is_numeric($available) && $newQty > (float)$available) {
+                    $newQty = (float)$available;
+                }
+            } else {
+                $inventory_id = (int)$key;
+                $stmt = $conn->prepare("SELECT quantity FROM crops_inventory WHERE inventory_id = ?");
+                $stmt->bind_param("i", $inventory_id);
+                $stmt->execute();
+                $stmt->bind_result($available);
+                $stmt->fetch();
+                $stmt->close();
+
+                if (is_numeric($available) && $newQty > (float)$available) {
+                    $newQty = (float)$available;
+                }
+            }
+
+            if ($newQty > 0) {
+                $_SESSION['cart'][$key] = $newQty;
+            } else {
+                unset($_SESSION['cart'][$key]);
+            }
+        }
+    } else {
+        $pool_id = (int)($_POST['pool_id'] ?? 0);
+        $inventory_id = (int)($_POST['inventory_id'] ?? 0);
+        $qty_posted = (float)($_POST['qty'] ?? 0);
+
+        if ($pool_id > 0 && $qty_posted > 0) {
+            // Add cooperative pool item (key: p_POOL_ID)
+            $key = 'p_' . $pool_id;
+            $stmt = $conn->prepare("SELECT total_quantity FROM cooperative_pools WHERE pool_id = ?");
+            $stmt->bind_param("i", $pool_id);
+            $stmt->execute();
+            $stmt->bind_result($available);
+            $stmt->fetch();
+            $stmt->close();
+            $current = isset($_SESSION['cart'][$key]) ? (float)$_SESSION['cart'][$key] : 0;
+            $newQty = $current + $qty_posted;
+            if (is_numeric($available) && $newQty > (float)$available) $newQty = (float)$available;
+            $_SESSION['cart'][$key] = $newQty;
+        } elseif ($inventory_id > 0 && $qty_posted > 0) {
+            // Add individual farmer inventory item
+            $stmtInv = $conn->prepare("SELECT quantity FROM crops_inventory WHERE inventory_id = ?");
+            $stmtInv->bind_param("i", $inventory_id);
+            $stmtInv->execute();
+            $stmtInv->bind_result($available);
+            $stmtInv->fetch();
+            $stmtInv->close();
+            $current = isset($_SESSION['cart'][$inventory_id]) ? (int)$_SESSION['cart'][$inventory_id] : 0;
+            $newQty = $current + (int)$qty_posted;
+            if (is_numeric($available) && $newQty > $available) $newQty = (int)$available;
+            $_SESSION['cart'][$inventory_id] = $newQty;
+        }
     }
 }
+
 
 $user_id = $_SESSION['user_id'];
 $first_name = $_SESSION['first_name'];
@@ -68,11 +113,11 @@ $stmt->close();
         
         <div class="nav-links">
             <a href="../index.php" class="nav-link">Dashboard</a>
-            <a href="marketplace.php" class="nav-link">Marketplace</a>
+            <a href="../marketplace.php" class="nav-link">Marketplace</a>
             <a href="cart.php" class="nav-link active">Cart</a>
             <a href="orders.php" class="nav-link">My Orders</a>
-            <a href="profile.php" class="nav-link">Profile</a>
-            <a href="ratings.php" class="nav-link">Ratings</a>
+            <a href="../announcements.php" class="nav-link">Announcements</a>
+            <a href="../invoices.php" class="nav-link">Invoices</a>
             <a href="notifications.php" class="nav-link">Notifications</a>
         </div>
         
@@ -124,46 +169,82 @@ $stmt->close();
                     $qty = (float)$qty;
                     if ($qty <= 0) continue;
 
+                    $itemName = '';
+                    $itemUnit = '';
+                    $itemImage = '';
+                    $itemPrice = 0;
+                    $itemLabel = '';
+                    $itemKey = $id;
+
                     if (is_string($id) && strpos($id, 'p_') === 0) {
                         $pool_id = (int)substr($id, 2);
-                        $stmt = $conn->prepare("SELECT p.total_quantity, c.crop_name, p.unit" . ($has_pool_price ? ", p.unit_price" : "") . " FROM cooperative_pools p JOIN crops c ON p.crop_id = c.crop_id WHERE p.pool_id = ?");
+                        $stmt = $conn->prepare("SELECT p.total_quantity, c.crop_name, p.unit" . ($has_pool_price ? ", p.unit_price" : "") . ", (SELECT ci_img.image_path FROM crops_inventory ci JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id WHERE ci.crop_id = p.crop_id ORDER BY ci_img.is_primary DESC, ci_img.image_id ASC LIMIT 1) AS image_path FROM cooperative_pools p JOIN crops c ON p.crop_id = c.crop_id WHERE p.pool_id = ?");
                         $stmt->bind_param("i", $pool_id);
                         $stmt->execute();
                         $row = $stmt->get_result()->fetch_assoc();
                         $stmt->close();
                         if (!$row) continue;
-                        $price = ($has_pool_price && isset($row['unit_price']) && $row['unit_price'] != null) ? (float)$row['unit_price'] : 0;
-                        $subtotal = $price * $qty;
-                        $total += $subtotal;
-            ?>
-            <div class="cart-item-row">
-                <div>
-                    <div class="cart-item-name"><?= htmlspecialchars($row['crop_name']) ?> <span style="font-size:0.85rem; color:var(--text-light); font-weight:500;">(Cooperative)</span></div>
-                    <div class="cart-item-meta"><?= number_format($qty, 2) ?> <?= htmlspecialchars($row['unit']) ?></div>
-                </div>
-                <div class="cart-item-subtotal">₱<?= number_format($subtotal, 2) ?></div>
-            </div>
-            <?php
+                        $itemName = $row['crop_name'];
+                        $itemUnit = $row['unit'];
+                        $itemImage = $row['image_path'] ?? '';
+                        $itemLabel = 'Cooperative';
+                        $itemPrice = ($has_pool_price && isset($row['unit_price']) && $row['unit_price'] != null) ? (float)$row['unit_price'] : 0;
                     } else {
                         $inv_id = (int)$id;
-                        $stmt = $conn->prepare("SELECT ci.price, c.crop_name, ci.unit FROM crops_inventory ci JOIN crops c ON ci.crop_id = c.crop_id WHERE ci.inventory_id = ?");
+                        $stmt = $conn->prepare("SELECT ci.price, c.crop_name, ci.unit, (SELECT image_path FROM crop_images WHERE inventory_id = ci.inventory_id ORDER BY is_primary DESC, image_id ASC LIMIT 1) AS image_path FROM crops_inventory ci JOIN crops c ON ci.crop_id = c.crop_id WHERE ci.inventory_id = ?");
                         $stmt->bind_param("i", $inv_id);
                         $stmt->execute();
                         $row = $stmt->get_result()->fetch_assoc();
                         $stmt->close();
                         if (!$row) continue;
-                        $subtotal = (float)$row['price'] * $qty;
-                        $total += $subtotal;
+                        $itemName = $row['crop_name'];
+                        $itemUnit = $row['unit'];
+                        $itemImage = $row['image_path'] ?? '';
+                        $itemLabel = '';
+                        $itemPrice = (float)$row['price'];
+                    }
+
+                    $subtotal = $itemPrice * $qty;
+                    $total += $subtotal;
             ?>
             <div class="cart-item-row">
-                <div>
-                    <div class="cart-item-name"><?= htmlspecialchars($row['crop_name']) ?></div>
-                    <div class="cart-item-meta"><?= number_format($qty, 2) ?> <?= htmlspecialchars($row['unit']) ?></div>
+                <div class="cart-item-thumbnail">
+                    <?php if (!empty($itemImage) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $itemImage)): ?>
+                        <img src="<?= htmlspecialchars('/bantayani/' . $itemImage) ?>" alt="<?= htmlspecialchars($itemName) ?>">
+                    <?php elseif (!empty($itemImage)): ?>
+                        <img src="<?= htmlspecialchars($itemImage) ?>" alt="<?= htmlspecialchars($itemName) ?>">
+                    <?php else: ?>
+                        <div class="cart-item-placeholder"><i class="fa-solid fa-image"></i></div>
+                    <?php endif; ?>
+                </div>
+                <div class="cart-item-content">
+                    <div class="cart-item-name"><?= htmlspecialchars($itemName) ?> <?php if ($itemLabel): ?><span class="cart-item-label">(<?= htmlspecialchars($itemLabel) ?>)</span><?php endif; ?></div>
+                    <div class="cart-item-meta"><?= number_format($qty, 2) ?> <?= htmlspecialchars($itemUnit) ?></div>
+                    <div class="quantity-controls">
+                        <form method="post" style="display:inline;">
+                            <input type="hidden" name="action" value="update_quantity">
+                            <input type="hidden" name="cart_key" value="<?= htmlspecialchars($itemKey) ?>">
+                            <input type="hidden" name="delta" value="-1">
+                            <button type="submit" class="qty-btn">−</button>
+                        </form>
+                        <span class="qty-value"><?= number_format($qty, 2) ?></span>
+                        <form method="post" style="display:inline;">
+                            <input type="hidden" name="action" value="update_quantity">
+                            <input type="hidden" name="cart_key" value="<?= htmlspecialchars($itemKey) ?>">
+                            <input type="hidden" name="delta" value="1">
+                            <button type="submit" class="qty-btn">+</button>
+                        </form>
+                        <form method="post" style="display:inline; margin-left: 12px;">
+                            <input type="hidden" name="action" value="update_quantity">
+                            <input type="hidden" name="cart_key" value="<?= htmlspecialchars($itemKey) ?>">
+                            <input type="hidden" name="delta" value="-999999">
+                            <button type="submit" class="remove-btn">Remove</button>
+                        </form>
+                    </div>
                 </div>
                 <div class="cart-item-subtotal">₱<?= number_format($subtotal, 2) ?></div>
             </div>
             <?php
-                    }
                 }
                 endif;
             ?>
@@ -175,7 +256,7 @@ $stmt->close();
             </div>
             <div class="cart-actions">
                 <a class="btn" href="checkout.php">Proceed to Checkout</a>
-                <a class="btn" href="marketplace.php" style="background: var(--beige); color: var(--text); box-shadow: none;">Continue Shopping</a>
+                <a class="btn" href="../marketplace.php" style="background: var(--beige); color: var(--text); box-shadow: none;">Continue Shopping</a>
             </div>
             <?php endif; ?>
         </div>

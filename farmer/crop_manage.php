@@ -39,17 +39,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_crop'])) {
         $_SESSION['error_message'] = 'Error deleting crop: ' . $e->getMessage();
     }
     
-    header('Location: inventory.php');
+    header('Location: crop_manage.php');
     exit;
 }
 
 // Fetch farmer's crops with category information
 $crops_query = "
-    SELECT ci.inventory_id, ci.crop_name, ci.quantity, ci.unit, ci.price, ci.harvest_date, 
-           ci.harvest_status, ci.img_path, cc.category_name
+    SELECT ci.inventory_id, c.crop_name, ci.quantity, ci.unit, ci.price, ci.harvest_date, 
+           ci.harvest_status, ci_img.image_path, cc.category_name
     FROM crops_inventory ci
     JOIN crops c ON ci.crop_id = c.crop_id
     JOIN crop_categories cc ON c.category_id = cc.category_id
+    JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
     WHERE ci.farmer_id = ?
     ORDER BY ci.harvest_date DESC, ci.created_at DESC
 ";
@@ -316,7 +317,7 @@ $crops_result = $crops_stmt->get_result();
                 <a href="crop_add.php" class="btn">
                     <span>+</span> Add New Crop
                 </a>
-                <a href="../inventory.php" class="btn btn-secondary">
+                <a href="inventory.php" class="btn btn-secondary">
                     View Full Inventory Dashboard
                 </a>
             </div>
@@ -344,9 +345,17 @@ $crops_result = $crops_stmt->get_result();
             <div class="crops-grid">
                 <?php while ($crop = $crops_result->fetch_assoc()): ?>
                     <div class="crop-card">
-                        <?php if ($crop['img_path']): ?>
-                            <img src="<?php echo htmlspecialchars($crop['img_path']); ?>" 
-                                 alt="<?php echo htmlspecialchars($crop['crop_name']); ?>" 
+                        <?php if ($crop['image_path']): ?>
+                            <?php
+                                $cropImagePath = trim($crop['image_path']);
+                                if (preg_match('#^(https?://|/)#', $cropImagePath)) {
+                                    $imgSrc = $cropImagePath;
+                                } else {
+                                    $imgSrc = '../' . ltrim($cropImagePath, '/');
+                                }
+                            ?>
+                            <img src="<?= htmlspecialchars($imgSrc) ?>" 
+                                 alt="<?= htmlspecialchars($crop['crop_name']); ?>" 
                                  class="crop-image">
                         <?php else: ?>
                             <div class="crop-image">

@@ -852,9 +852,10 @@ if (!empty($due_harvests)) {
 
         <!-- BOTTOM SECTION: All Crops with Tabs -->
         <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
-            <div class="table-header">
+            <div class="table-header" style="justify-content: space-between;">
                 <h3>All Crops Inventory</h3>
                 <div style="display: flex; gap: 12px; align-items: center;">
+                    <a href="crop_manage.php" class="btn" style="height: 36px; padding: 0 14px; font-size: 0.85rem;">View Crop Management Overview</a>
                     <div class="tab-container">
                         <button class="tab-btn active" onclick="showTab('all')">All Crops</button>
                         <button class="tab-btn" onclick="showTab('available')">Available</button>

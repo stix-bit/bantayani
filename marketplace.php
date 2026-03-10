@@ -11,6 +11,8 @@ $first_name = $_SESSION['first_name'];
 $role = $_SESSION['role'];
 $isBuyer = ($role === 'Buyer');
 
+$search_query = trim($_GET['q'] ?? '');
+$sort = $_GET['sort'] ?? 'newest';
 
 $profile_img = null;
 $stmt = $conn->prepare("SELECT img_path FROM users WHERE user_id = ?");
@@ -19,6 +21,35 @@ $stmt->execute();
 $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
+
+// Build search filter conditions for inventory and pool separately
+$inventoryFilter = ["ci.quantity > 0"];
+$poolFilter = ["(p.total_quantity IS NULL OR p.total_quantity > 0)"];
+if ($search_query !== '') {
+    $escapedSearch = $conn->real_escape_string($search_query);
+    $inventoryFilter[] = "c.crop_name LIKE '%$escapedSearch%'";
+    $poolFilter[] = "c.crop_name LIKE '%$escapedSearch%'";
+}
+
+// Determine sort order; for inventory and pool we apply same direction if possible
+$inventorySort = 'ci.inventory_id DESC';
+$poolSort = 'p.pool_id DESC';
+if ($sort === 'price_asc') {
+    $inventorySort = 'ci.price ASC';
+    $poolSort = 'p.unit_price ASC';
+} elseif ($sort === 'price_desc') {
+    $inventorySort = 'ci.price DESC';
+    $poolSort = 'p.unit_price DESC';
+} elseif ($sort === 'name_asc') {
+    $inventorySort = 'c.crop_name ASC';
+    $poolSort = 'c.crop_name ASC';
+} elseif ($sort === 'name_desc') {
+    $inventorySort = 'c.crop_name DESC';
+    $poolSort = 'c.crop_name DESC';
+}
+
+$inventoryWhereClause = implode(' AND ', $inventoryFilter);
+$poolWhereClause = implode(' AND ', $poolFilter);
 
 // Get products (individual farmer inventory)
 $sql = "SELECT 
@@ -40,9 +71,11 @@ $sql = "SELECT
         JOIN users u ON ci.farmer_id = u.user_id
         LEFT JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
         LEFT JOIN ratings r ON ci.inventory_id = r.inventory_id
-        WHERE ci.quantity > 0
-        GROUP BY ci.inventory_id";
+        WHERE $inventoryWhereClause
+        GROUP BY ci.inventory_id
+        ORDER BY $inventorySort";
 $result = $conn->query($sql);
+
 
 // Check if cooperative_pools has unit_price (from migration)
 $has_pool_price = false;
@@ -69,8 +102,8 @@ $pool_sql = "
         ) AS pool_image
     FROM cooperative_pools p
     JOIN crops c ON p.crop_id = c.crop_id
-    WHERE (p.total_quantity IS NULL OR p.total_quantity > 0)
-    ORDER BY c.crop_name
+    WHERE $poolWhereClause
+    ORDER BY $poolSort
 ";
 $pools_result = $conn->query($pool_sql);
 $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
@@ -107,6 +140,7 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
             <?php elseif ($isBuyer): ?>
                 <a href="index.php" class="nav-link">Dashboard</a>
                 <a href="marketplace.php" class="nav-link active">Marketplace</a>
+                <a href="./buyer/cart.php" class="nav-link">Cart</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
                 <a href="reports.php" class="nav-link">Reports</a>
                 <a href="announcements.php" class="nav-link">Announcements</a>
@@ -143,6 +177,20 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
         <div class="page-header">
             <h1>🌾 Marketplace</h1>
             <p>Browse fresh produce from local farmers and cooperative pools</p>
+        </div>
+
+        <div class="filter-section" style="max-width: 900px; margin: 0 auto 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+            <form method="GET" action="marketplace.php" style="display:flex; flex:1; gap:10px; flex-wrap: wrap;">
+                <input type="text" name="q" value="<?= htmlspecialchars($search_query) ?>" placeholder="Search crops!" style="flex:1; padding:10px 14px; border:1px solid var(--border); border-radius:12px;">
+                <select name="sort" style="padding:10px 14px; border:1px solid var(--border); border-radius:12px;">
+                    <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest</option>
+                    <option value="name_asc" <?= $sort === 'name_asc' ? 'selected' : '' ?>>Name A-Z</option>
+                    <option value="name_desc" <?= $sort === 'name_desc' ? 'selected' : '' ?>>Name Z-A</option>
+                    <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : '' ?>>Price Low-High</option>
+                    <option value="price_desc" <?= $sort === 'price_desc' ? 'selected' : '' ?>>Price High-Low</option>
+                </select>
+                <button type="submit" class="btn" style="padding:10px 14px;">Search</button>
+            </form>
         </div>
 
         <?php if (!empty($pools)): ?>
@@ -204,7 +252,7 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
                         <p>Farm: <?= htmlspecialchars($row['farm_name']) ?></p>
                         <p>
                             Farmer: 
-                            <a href="../user/view_profile.php?id=<?= (int) $row['farmer_id'] ?>">
+                            <a href="./user/view_profile.php?id=<?= (int) $row['farmer_id'] ?>">
                                 <?= htmlspecialchars(trim($row['farmer_first_name'] . ' ' . $row['farmer_last_name'])) ?>
                             </a>
                         </p>
@@ -213,7 +261,7 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
                         <p>Rating: <?php if ($row['avg_rating']): ?>⭐ <?= $row['avg_rating'] ?> / 5 (<?= $row['total_ratings'] ?> reviews)<?php else: ?>No ratings yet<?php endif; ?></p>
 
                         <?php if ($isBuyer): ?>
-                            <form action="buyer/submit_rating.php" method="POST" style="margin-top:8px;">
+                            <!-- <form action="buyer/submit_rating.php" method="POST" style="margin-top:8px;">
                                 <input type="hidden" name="inventory_id" value="<?= $row['inventory_id'] ?>">
                                 <select name="rating" required>
                                     <option value="">Rate</option>
@@ -232,9 +280,9 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
                                 <button type="submit" style="margin-top:4px;">
                                     Submit
                                 </button>
-                            </form>
+                            </form> -->
 
-                            <a class="btn" href="buyer/product.php?id=<?= $row['inventory_id'] ?>">View Details</a>
+                            <a class="btn" href="buyer/product.php?id=<?= $row['inventory_id'] ?>">View Product</a>
                         <?php else: ?>
                             <button class="btn" style="background:#ccc; cursor:not-allowed;" disabled>
                                 View Only

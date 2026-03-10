@@ -589,11 +589,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="header">
             <h1 style="margin: 0; color: var(--green-dark);">BantayAni Farmer Portal</h1>
             <div class="nav-links">
-                <a href="..\index.php">Dashboard</a>
-                <a href="inventory.php">Inventory</a>
-                <a href="orders.php">Orders</a>
-                <a href="profile.php" style="background: rgba(31, 138, 112, 0.1);">Profile</a>
-                <a href="notifications.php">Notifications</a>
+                 <a href="../index.php" class="nav-link">Dashboard</a>
+                <a href="inventory.php" class="nav-link">My Inventory</a>
+                <a href="orders.php" class="nav-link">Orders</a>
+                <a href="cooperative.php" class="nav-link">Cooperative</a>
+                <a href="../reports.php" class="nav-link">Reports</a>
+                <a href="../announcements.php" class="nav-link">Announcements</a>
+                <a href="../invoices.php" class="nav-link">Invoices</a>
+                <a href="notifications.php" class="nav-link active">Notifications</a>
                 <a href="/bantayani/user/logout.php">Logout</a>
             </div>
         </div>

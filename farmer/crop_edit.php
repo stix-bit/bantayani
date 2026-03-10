@@ -32,6 +32,8 @@ if ($crop_result->num_rows === 0) {
 }
 
 $crop = $crop_result->fetch_assoc();
+$selected_crop_id = $crop['crop_id'];
+$selected_category_id = $crop['category_id'];
 
 // Fetch crop categories
 $categories_query = "SELECT category_id, category_name FROM crop_categories ORDER BY display_order, category_name";
@@ -41,8 +43,10 @@ $errors = [];
 $success_message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $crop_name = trim($_POST['crop_name'] ?? '');
     $category_id = intval($_POST['category_id'] ?? 0);
+    $crop_id = intval($_POST['crop_id'] ?? 0);
+    $selected_category_id = $category_id;
+    $selected_crop_id = $crop_id;
     $quantity = floatval($_POST['quantity'] ?? 0);
     $unit = $_POST['unit'] ?? 'kg';
     $price = floatval($_POST['price'] ?? 0);
@@ -50,12 +54,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $harvest_status = $_POST['harvest_status'] ?? 'Scheduled';
     
     // Validate inputs
-    if ($crop_name === '') {
-        $errors[] = 'Crop name is required.';
-    }
-    
     if ($category_id <= 0) {
         $errors[] = 'Please select a crop category.';
+    }
+
+    if ($crop_id <= 0) {
+        $errors[] = 'Please select a crop.';
     }
     
     if ($quantity <= 0) {
@@ -106,30 +110,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (empty($errors)) {
         try {
-            // Update crops table if crop name or category changed
-            if ($crop_name !== $crop['crop_name'] || $category_id !== $crop['category_id']) {
-                // Check if crop already exists
-                $check_crop_stmt = $conn->prepare("SELECT crop_id FROM crops WHERE crop_name = ? AND category_id = ?");
-                $check_crop_stmt->bind_param('si', $crop_name, $category_id);
-                $check_crop_stmt->execute();
-                $check_result = $check_crop_stmt->get_result();
-                
-                if ($check_result->num_rows === 0) {
-                    // Insert new crop
-                    $insert_crop_stmt = $conn->prepare("INSERT INTO crops (category_id, crop_name) VALUES (?, ?)");
-                    $insert_crop_stmt->bind_param('is', $category_id, $crop_name);
-                    $insert_crop_stmt->execute();
-                    $new_crop_id = $conn->insert_id;
-                } else {
-                    $check_row = $check_result->fetch_assoc();
-                    $new_crop_id = $check_row['crop_id'];
-                }
-                $check_crop_stmt->close();
-                $insert_crop_stmt->close();
-            } else {
-                $new_crop_id = $crop['crop_id'];
-            }
-            
+            // Use selected crop ID directly from crop_add style
+            $new_crop_id = $crop_id;
+
             // Update crops_inventory
             $update_inventory_stmt = $conn->prepare("
                 UPDATE crops_inventory 
@@ -162,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $_SESSION['success_message'] = 'Crop updated successfully!';
-            header('Location: inventory.php');
+            header('Location: crop_manage.php');
             exit;
             
         } catch (Exception $e) {
@@ -395,7 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="header">
             <h1>Edit Crop</h1>
             <p>Update your crop information in the inventory.</p>
-            <a href="../inventory.php" class="nav-link">← Back to Inventory Dashboard</a>
+            <a href="inventory.php" class="nav-link">← Back to Inventory Dashboard</a>
         </div>
 
         <?php if (!empty($errors)): ?>
@@ -419,12 +402,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="POST" enctype="multipart/form-data">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label for="crop_name">Crop Name</label>
-                        <input type="text" id="crop_name" name="crop_name" 
-                               value="<?php echo htmlspecialchars($crop['crop_name']); ?>" required>
-                    </div>
-
-                    <div class="form-group">
                         <label for="category_id">Category</label>
                         <select id="category_id" name="category_id" required>
                             <option value="">Select Category</option>
@@ -434,10 +411,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             while ($category = $categories_result->fetch_assoc()): 
                             ?>
                                 <option value="<?php echo $category['category_id']; ?>"
-                                        <?php echo ($crop['category_id'] == $category['category_id']) ? 'selected' : ''; ?>>
+                                        <?php echo ($selected_category_id == $category['category_id']) ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($category['category_name']); ?>
                                 </option>
                             <?php endwhile; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="crop_id">Crop</label>
+                        <select id="crop_id" name="crop_id" required>
+                            <option value="">Select Crop</option>
                         </select>
                     </div>
 
@@ -541,5 +525,41 @@ document.getElementById('crop_images').addEventListener('change', function(e) {
         }
     });
 });
+</script>
+
+<script>
+// load crop options based on category selection
+function loadCropOptions(categoryId, selectedCropId) {
+    const cropSelect = document.getElementById('crop_id');
+    cropSelect.innerHTML = '<option value="">Loading...</option>';
+    if (!categoryId) {
+        cropSelect.innerHTML = '<option value="">Select Crop</option>';
+        return;
+    }
+
+    fetch('get_crops.php?category_id='+categoryId)
+        .then(res => res.json())
+        .then(data => {
+            cropSelect.innerHTML = '<option value="">Select Crop</option>';
+            data.forEach(crop => {
+                const opt = document.createElement('option');
+                opt.value = crop.crop_id;
+                opt.textContent = crop.crop_name;
+                if (parseInt(crop.crop_id) === parseInt(selectedCropId)) {
+                    opt.selected = true;
+                }
+                cropSelect.appendChild(opt);
+            });
+        }).catch(() => {
+            cropSelect.innerHTML = '<option value="">Select Crop</option>';
+        });
+}
+
+document.getElementById('category_id').addEventListener('change', function() {
+    loadCropOptions(this.value, null);
+});
+
+// init with existing selection
+loadCropOptions(<?= (int)$selected_category_id ?>, <?= (int)$selected_crop_id ?>);
 </script>
 </html>

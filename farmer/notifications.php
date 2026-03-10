@@ -103,8 +103,8 @@ $ord->close();
                 <a href="orders.php" class="nav-link">Orders</a>
                 <a href="cooperative.php" class="nav-link">Cooperative</a>
                 <a href="../reports.php" class="nav-link">Reports</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
-                <a href="invoices.php" class="nav-link">Invoices</a>
+                <a href="../announcements.php" class="nav-link">Announcements</a>
+                <a href="../invoices.php" class="nav-link">Invoices</a>
                 <a href="notifications.php" class="nav-link active">Notifications</a>
     </div>
     <div class="user-menu">

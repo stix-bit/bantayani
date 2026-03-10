@@ -159,11 +159,12 @@ $stmt->close();
         
         <div class="nav-links">
             <a href="../index.php" class="nav-link">Dashboard</a>
-            <a href="marketplace.php" class="nav-link active">Marketplace</a>
-            <a href="cart.php" class="nav-link">Cart</a>
+            <a href="../marketplace.php" class="nav-link">Marketplace</a>
+            <a href="cart.php" class="nav-link active">Cart</a>
             <a href="orders.php" class="nav-link">My Orders</a>
-            <a href="profile.php" class="nav-link">Profile</a>
-            <a href="ratings.php" class="nav-link">Ratings</a>
+            <a href="../announcements.php" class="nav-link">Announcements</a>
+            <a href="../invoices.php" class="nav-link">Invoices</a>
+            <a href="notifications.php" class="nav-link">Notifications</a>
         </div>
         
         <div class="user-menu">
@@ -189,13 +190,13 @@ $stmt->close();
         </div>
     </nav>
 
-<div class="card">
+<div class="cart-card">
     <?php if (isset($show_success)): ?>
-        <h2>Order Successful</h2>
+        <h2 class="card-title">Order Successful</h2>
         <p>Your order has been placed.</p>
         <a class="btn" href="orders.php">View Orders</a>
     <?php elseif (isset($show_error)): ?>
-        <h2>Order Failed</h2>
+        <h2 class="card-title">Order Failed</h2>
         <p>Insufficient stock for one or more items.</p>
         <a class="btn" href="cart.php">Back to Cart</a>
     <?php else: ?>
@@ -209,61 +210,82 @@ $stmt->close();
             $cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
             if ($cols && $cols->num_rows > 0) $has_pool_price = true;
 
-            foreach ($cart as $id => $qty) {
+            foreach ($cart as $key => $qty) {
                 $qty = (float)$qty;
                 if ($qty <= 0) continue;
 
-                if (is_string($id) && strpos($id, 'p_') === 0) {
-                    $pool_id = (int)substr($id, 2);
+                $itemImage = '';
+                $itemName = '';
+                $itemUnit = '';
+                $itemPrice = 0;
+                $subtotal = 0;
+
+                if (is_string($key) && strpos($key, 'p_') === 0) {
+                    $pool_id = (int)substr($key, 2);
                     $stmt = $conn->prepare("SELECT c.crop_name, p.unit" . ($has_pool_price ? ", p.unit_price" : "") . " FROM cooperative_pools p JOIN crops c ON p.crop_id = c.crop_id WHERE p.pool_id = ?");
                     $stmt->bind_param("i", $pool_id);
                     $stmt->execute();
                     $row = $stmt->get_result()->fetch_assoc();
                     $stmt->close();
                     if (!$row) continue;
-                    $price = ($has_pool_price && isset($row['unit_price']) && $row['unit_price'] != null) ? (float)$row['unit_price'] : 0;
-                    $subtotal = $price * $qty;
-                    $total += $subtotal;
-            ?>
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-                <div>
-                    <strong><?= htmlspecialchars($row['crop_name']) ?> <span style="font-size:0.85rem; color:#666;">(Cooperative)</span></strong><br>
-                    <small>Qty: <?= number_format($qty, 2) ?> <?= htmlspecialchars($row['unit']) ?> × ₱<?= number_format($price, 2) ?></small>
-                </div>
-                <div style="text-align: right;">
-                    <strong>₱<?= number_format($subtotal, 2) ?></strong>
-                </div>
-            </div>
-            <?php
+
+                    $itemName = $row['crop_name'];
+                    $itemUnit = $row['unit'];
+                    $itemPrice = ($has_pool_price && isset($row['unit_price']) && $row['unit_price'] != null) ? (float)$row['unit_price'] : 0;
+
+                    $stmtImg = $conn->prepare("SELECT ci_img.image_path FROM crop_images ci_img JOIN crops_inventory ci ON ci_img.inventory_id = ci.inventory_id WHERE ci.crop_id = (SELECT crop_id FROM cooperative_pools WHERE pool_id = ?) ORDER BY ci_img.is_primary DESC, ci_img.image_id ASC LIMIT 1");
+                    $stmtImg->bind_param("i", $pool_id);
+                    $stmtImg->execute();
+                    $stmtImg->bind_result($itemImage);
+                    $stmtImg->fetch();
+                    $stmtImg->close();
+
+                    $subtotal = $itemPrice * $qty;
                 } else {
-                    $inv_id = (int)$id;
+                    $inventory_id = (int)$key;
                     $stmt = $conn->prepare("SELECT ci.price, c.crop_name, ci.unit FROM crops_inventory ci JOIN crops c ON ci.crop_id = c.crop_id WHERE ci.inventory_id = ?");
-                    $stmt->bind_param("i", $inv_id);
+                    $stmt->bind_param("i", $inventory_id);
                     $stmt->execute();
                     $row = $stmt->get_result()->fetch_assoc();
                     $stmt->close();
                     if (!$row) continue;
-                    $subtotal = (float)$row['price'] * $qty;
-                    $total += $subtotal;
+
+                    $itemName = $row['crop_name'];
+                    $itemUnit = $row['unit'];
+                    $itemPrice = (float)$row['price'];
+
+                    $stmtImg = $conn->prepare("SELECT image_path FROM crop_images WHERE inventory_id = ? ORDER BY is_primary DESC, image_id ASC LIMIT 1");
+                    $stmtImg->bind_param("i", $inventory_id);
+                    $stmtImg->execute();
+                    $stmtImg->bind_result($itemImage);
+                    $stmtImg->fetch();
+                    $stmtImg->close();
+
+                    $subtotal = $itemPrice * $qty;
+                }
+
+                $total += $subtotal;
             ?>
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee;">
-                <div>
-                    <strong><?= htmlspecialchars($row['crop_name']) ?></strong><br>
-                    <small>Qty: <?= number_format($qty, 2) ?> × ₱<?= number_format($row['price'], 2) ?></small>
+            <div class="cart-item-row">
+                <div class="cart-item-thumbnail">
+                    <?php if (!empty($itemImage)): ?>
+                        <img src="<?= htmlspecialchars('../' . $itemImage) ?>" alt="<?= htmlspecialchars($itemName) ?>">
+                    <?php else: ?>
+                        <div class="cart-item-placeholder">📦</div>
+                    <?php endif; ?>
                 </div>
-                <div style="text-align: right;">
-                    <strong>₱<?= number_format($subtotal, 2) ?></strong>
+                <div class="cart-item-content">
+                    <div class="cart-item-name"><?= htmlspecialchars($itemName) ?></div>
+                    <div class="cart-item-meta">Qty: <?= number_format($qty, 2) ?> <?= htmlspecialchars($itemUnit) ?> × ₱<?= number_format($itemPrice, 2) ?></div>
                 </div>
+                <div class="cart-item-subtotal">₱<?= number_format($subtotal, 2) ?></div>
             </div>
-            <?php } ?>
             <?php } ?>
         </div>
 
-        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <div style="display: flex; justify-content: space-between; font-size: 1.2em; font-weight: bold;">
-                <span>Total Amount:</span>
-                <span style="color: #27ae60;">₱<?= number_format($total, 2) ?></span>
-            </div>
+        <div class="cart-total-bar">
+            <span class="cart-total-label">Total Amount</span>
+            <span class="cart-total-amount">₱<?= number_format($total, 2) ?></span>
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">

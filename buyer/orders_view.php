@@ -46,6 +46,7 @@ $sql = "
         oi.order_item_id,
         oi.inventory_id,
         oi.pool_id,
+        COALESCE(c1.crop_id, c2.crop_id) AS crop_id,
         " . ($has_oi_quantity ? "COALESCE(oi.quantity, 1) AS qty" : "1 AS qty") . ",
         COALESCE(c1.crop_name, c2.crop_name) AS crop_name,
         COALESCE(ci.price, p.unit_price) AS unit_price,
@@ -85,13 +86,13 @@ $stmt->close();
     </div>
     
     <div class="nav-links">
-        <a href="../index.php" class="nav-link">Dashboard</a>
-        <a href="marketplace.php" class="nav-link">Marketplace</a>
-        <a href="cart.php" class="nav-link">Cart</a>
-        <a href="orders.php" class="nav-link active">My Orders</a>
-        <a href="profile.php" class="nav-link">Profile</a>
-        <a href="ratings.php" class="nav-link">Ratings</a>
-        <a href="notifications.php" class="nav-link">Notifications</a>
+          <a href="../index.php" class="nav-link">Dashboard</a>
+            <a href="../marketplace.php" class="nav-link">Marketplace</a>
+            <a href="cart.php" class="nav-link">Cart</a>
+            <a href="orders.php" class="nav-link active">My Orders</a>
+            <a href="../announcements.php" class="nav-link">Announcements</a>
+            <a href="../invoices.php" class="nav-link">Invoices</a>
+            <a href="notifications.php" class="nav-link">Notifications</a>
     </div>
     
     <div class="user-menu">
@@ -117,23 +118,21 @@ $stmt->close();
     </div>
 </nav>
 
-<div class="container">
-    <div class="card">
+<div class="container" style="max-width: 900px; margin: 40px auto; padding: 0 16px;">
+    <div class="cart-card">
         <h1>Order #<?= $order_id ?></h1>
 
         <?php if ($order_info): ?>
-            <div class="order-summary">
-                <div class="summary-row">
+            <div class="order-summary" style="margin-bottom:16px;">
+                <div class="summary-row" style="display:flex; justify-content:space-between; margin-bottom:8px;">
                     <strong>Order Status:</strong>
-                    <span class="badge <?= $order_info['order_status'] === 'Pending' ? 'pending' : ''; ?>">
-                        <?= $order_info['order_status']; ?>
-                    </span>
+                    <span class="badge <?= $order_info['order_status'] === 'Pending' ? 'pending' : ''; ?>" style="padding:4px 10px; border-radius:999px;"><?= $order_info['order_status']; ?></span>
                 </div>
-                <div class="summary-row">
+                <div class="summary-row" style="display:flex; justify-content:space-between; margin-bottom:8px;">
                     <strong>Order Date:</strong>
                     <span><?= date('F d, Y g:i A', strtotime($order_info['order_date'])); ?></span>
                 </div>
-                <div class="summary-row">
+                <div class="summary-row" style="display:flex; justify-content:space-between;">
                     <strong>Payment Status:</strong>
                     <span><?= $order_info['payment_status'] ?? 'Pending'; ?></span>
                 </div>
@@ -148,20 +147,37 @@ $stmt->close();
                 $unit_price = (float)($row['unit_price'] ?? 0);
                 $subtotal = $unit_price * $qty;
                 $total += $subtotal;
+
+                $itemImage = '';
+                if (!empty($row['inventory_id'])) {
+                    $item_stmt = $conn->prepare("SELECT image_path FROM crop_images WHERE inventory_id = ? ORDER BY is_primary DESC, image_id ASC LIMIT 1");
+                    $item_stmt->bind_param("i", $row['inventory_id']);
+                    $item_stmt->execute();
+                    $item_stmt->bind_result($itemImage);
+                    $item_stmt->fetch();
+                    $item_stmt->close();
+                } elseif (!empty($row['crop_id'])) {
+                    $item_stmt = $conn->prepare("SELECT ci_img.image_path FROM crop_images ci_img JOIN crops_inventory ci ON ci_img.inventory_id = ci.inventory_id WHERE ci.crop_id = ? ORDER BY ci_img.is_primary DESC, ci_img.image_id ASC LIMIT 1");
+                    $item_stmt->bind_param("i", $row['crop_id']);
+                    $item_stmt->execute();
+                    $item_stmt->bind_result($itemImage);
+                    $item_stmt->fetch();
+                    $item_stmt->close();
+                }
             ?>
-                <div class="item">
-                    <div class="item-row">
-                        <span class="item-name">
-                            <?= htmlspecialchars($row['crop_name']) ?>
-                            <?php if (!empty($row['is_pool'])): ?>
-                                <span style="font-size:0.85rem; color:#666;">(Cooperative)</span>
-                            <?php endif; ?>
-                            <?php if ($qty != 1): ?>
-                                <span style="font-size:0.9rem;"> × <?= number_format($qty, 2) ?></span>
-                            <?php endif; ?>
-                        </span>
-                        <span style="font-weight:600;">₱<?= number_format($subtotal, 2) ?></span>
+                <div class="cart-item-row" style="align-items:flex-start; margin-bottom:12px;">
+                    <div class="cart-item-thumbnail">
+                        <?php if (!empty($itemImage)): ?>
+                            <img src="<?= htmlspecialchars('../' . $itemImage) ?>" alt="<?= htmlspecialchars($row['crop_name']) ?>">
+                        <?php else: ?>
+                            <div class="cart-item-placeholder">📦</div>
+                        <?php endif; ?>
                     </div>
+                    <div class="cart-item-content" style="flex:1;">
+                        <div class="cart-item-name"><?= htmlspecialchars($row['crop_name']) ?> <?php if (!empty($row['is_pool'])): ?><span class="cart-item-label">(Cooperative)</span><?php endif; ?></div>
+                        <div class="cart-item-meta">Qty: <?= number_format($qty, 2) ?> × ₱<?= number_format($unit_price, 2) ?></div>
+                    </div>
+                    <div class="cart-item-subtotal">₱<?= number_format($subtotal, 2) ?></div>
                 </div>
             <?php endwhile; ?>
 

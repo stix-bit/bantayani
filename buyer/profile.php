@@ -421,15 +421,15 @@ $is_buyer_verified = ($buyer_profile['verified'] ?? 0) || ($user['is_verified'] 
         <div class="header">
             <h1 style="margin: 0; color: var(--green-dark);">BantayAni Buyer Portal</h1>
             <div class="nav-links">
-                <a href="../index.php">Dashboard</a>
-                <a href="marketplace.php">Marketplace</a>
-                <a href="cart.php">Cart</a>
-                <a href="orders.php">My Orders</a>
-                <a href="profile.php" style="background: rgba(31, 138, 112, 0.1);">Profile</a>
-                <a href="ratings.php">Ratings</a>
-                <a href="notifications.php">Notifications</a>
-                <a href="/bantayani/user/logout.php">Logout</a>
+            <a href="../index.php" class="nav-link">Dashboard</a>
+            <a href="../marketplace.php" class="nav-link">Marketplace</a>
+            <a href="cart.php" class="nav-link">Cart</a>
+            <a href="orders.php" class="nav-link">My Orders</a>
+            <a href="../announcements.php" class="nav-link">Announcements</a>
+            <a href="../invoices.php" class="nav-link">Invoices</a>
+            <a href="notifications.php" class="nav-link">Notifications</a>
             </div>
+            
         </div>
 
         <?php if ($errors): ?>

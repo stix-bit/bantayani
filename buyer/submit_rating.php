@@ -15,7 +15,7 @@ $comment = isset($_POST['comment']) ? trim($_POST['comment']) : null;
 // Validate input
 if ($inventory_id <= 0 || $rating <= 0 || $rating > 5) {
     $_SESSION['error'] = "Invalid rating submission.";
-    header("Location: marketplace.php");
+    header("Location: ../marketplace.php");
     exit();
 }
 
@@ -33,17 +33,24 @@ if ($check_stmt->num_rows > 0) {
     $update_stmt->close();
 } else {
     // Buyer has not rated → insert new rating
-    $insert_stmt = $conn->prepare("INSERT INTO ratings (rating, comment, farmer_id, buyer_id, created_at) 
-                                   SELECT ?, ?, ci.farmer_id, ?, NOW() 
+    $insert_stmt = $conn->prepare("INSERT INTO ratings (rating, comment, farmer_id, buyer_id, inventory_id, created_at) 
+                                   SELECT ?, ?, ci.farmer_id, ?, ci.inventory_id, NOW() 
                                    FROM crops_inventory ci 
                                    WHERE ci.inventory_id = ?");
     $insert_stmt->bind_param("isii", $rating, $comment, $buyer_id, $inventory_id);
     $insert_stmt->execute();
+
+    if ($conn->affected_rows === 0) {
+        $_SESSION['error'] = "Rating submission failed. Inventory item not found.";
+        header("Location: ../marketplace.php");
+        exit();
+    }
+
     $insert_stmt->close();
 }
 
 $check_stmt->close();
 
 // Redirect back to marketplace with success
-header("Location: marketplace.php");
+header("Location: ../marketplace.php");
 exit();

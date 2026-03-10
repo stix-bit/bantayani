@@ -73,13 +73,13 @@ $ord->close();
         <div class="logo-text">BANTAY<span>ANI</span></div>
     </div>
     <div class="nav-links">
-        <a href="../index.php" class="nav-link">Dashboard</a>
-        <a href="marketplace.php" class="nav-link">Marketplace</a>
-        <a href="cart.php" class="nav-link">Cart</a>
-        <a href="orders.php" class="nav-link">My Orders</a>
-        <a href="profile.php" class="nav-link">Profile</a>
-        <a href="ratings.php" class="nav-link">Ratings</a>
-        <a href="notifications.php" class="nav-link active">Notifications</a>
+          <a href="../index.php" class="nav-link">Dashboard</a>
+            <a href="../marketplace.php" class="nav-link">Marketplace</a>
+            <a href="cart.php" class="nav-link">Cart</a>
+            <a href="orders.php" class="nav-link">My Orders</a>
+            <a href="../announcements.php" class="nav-link">Announcements</a>
+            <a href="../invoices.php" class="nav-link">Invoices</a>
+            <a href="notifications.php" class="nav-link active">Notifications</a>
     </div>
     <div class="user-menu">
         <?php

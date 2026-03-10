@@ -15,7 +15,7 @@ $stmt->close();
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($id <= 0) {
-    header('Location: marketplace.php');
+    header('Location: ../marketplace.php');
     exit;
 }
 
@@ -34,7 +34,7 @@ $row = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$row) {
-    header('Location: marketplace.php');
+    header('Location: ../marketplace.php');
     exit;
 }
 
@@ -400,11 +400,11 @@ $stmt->close();
         </div>
         <div class="nav-links">
             <a href="../index.php" class="nav-link">Dashboard</a>
-            <a href="marketplace.php" class="nav-link active">Marketplace</a>
+            <a href="../marketplace.php" class="nav-link active">Marketplace</a>
             <a href="cart.php" class="nav-link">Cart</a>
             <a href="orders.php" class="nav-link">My Orders</a>
-            <a href="profile.php" class="nav-link">Profile</a>
-            <a href="ratings.php" class="nav-link">Ratings</a>
+            <a href="../announcements.php" class="nav-link">Announcements</a>
+            <a href="../invoices.php" class="nav-link">Invoices</a>
             <a href="notifications.php" class="nav-link">Notifications</a>
         </div>
         <div class="user-menu">
@@ -432,7 +432,7 @@ $stmt->close();
 
     <div class="product-container">
         <div class="product-breadcrumb">
-            <a href="marketplace.php">Marketplace</a>
+            <a href="../marketplace.php">Marketplace</a>
             <span>›</span>
             <span><?= htmlspecialchars($row['crop_name']) ?></span>
         </div>

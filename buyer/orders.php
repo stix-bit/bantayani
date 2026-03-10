@@ -56,13 +56,13 @@ $orders = $stmt->get_result();
     </div>
     
     <div class="nav-links">
-        <a href="../index.php" class="nav-link">Dashboard</a>
-        <a href="marketplace.php" class="nav-link">Marketplace</a>
-        <a href="cart.php" class="nav-link">Cart</a>
-        <a href="orders.php" class="nav-link active">My Orders</a>
-        <a href="profile.php" class="nav-link">Profile</a>
-        <a href="ratings.php" class="nav-link">Ratings</a>
-        <a href="notifications.php" class="nav-link">Notifications</a>
+       <a href="../index.php" class="nav-link">Dashboard</a>
+            <a href="../marketplace.php" class="nav-link">Marketplace</a>
+            <a href="cart.php" class="nav-link">Cart</a>
+            <a href="orders.php" class="nav-link active">My Orders</a>
+            <a href="../announcements.php" class="nav-link">Announcements</a>
+            <a href="../invoices.php" class="nav-link">Invoices</a>
+            <a href="notifications.php" class="nav-link">Notifications</a>
     </div>
     
     <div class="user-menu">
@@ -88,8 +88,8 @@ $orders = $stmt->get_result();
     </div>
 </nav>
 
-<div class="container">
-    <div class="card">
+<div class="container" style="max-width: 900px; margin: 40px auto; padding: 0 16px;">
+    <div class="cart-card">
         <h1>My Orders</h1>
 
         <?php if (!empty($_SESSION['message'])): ?>
@@ -106,18 +106,14 @@ $orders = $stmt->get_result();
         <?php endif; ?>
 
         <?php while ($row = $orders->fetch_assoc()): ?>
-            <div class="order">
-                <div class="order-header">
-                    <span class="order-id">Order #<?= $row['order_id']; ?></span>
-                    <span class="badge <?= $row['order_status'] === 'Pending' ? 'pending' : ''; ?>">
-                        <?= $row['order_status']; ?>
-                    </span>
+            <div class="cart-item-row" style="flex-wrap: wrap; align-items: center; gap: 12px;">
+                <div>
+                    <div class="cart-item-name">Order #<?= $row['order_id']; ?></div>
+                    <div class="cart-item-meta">Date: <?= date('F d, Y', strtotime($row['order_date'])); ?></div>
+                    <div class="cart-item-meta">Payment: <?= $row['payment_status'] ?? 'Pending'; ?></div>
                 </div>
-                <div class="order-details">
-                    <strong>Date:</strong> <?= date('F d, Y', strtotime($row['order_date'])); ?><br>
-                    <strong>Payment:</strong> <?= $row['payment_status'] ?? 'Pending'; ?>
-                </div>
-                <div class="order-actions">
+                <div style="min-width: 220px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                    <span class="badge <?= $row['order_status'] === 'Pending' ? 'pending' : ($row['order_status'] === 'Cancelled' ? 'cancelled' : '') ;?>" style="padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center;"><?= $row['order_status']; ?></span>
                     <a class="btn" href="orders_view.php?id=<?= $row['order_id'] ?>">View</a>
                     <?php if ($row['order_status'] === 'Pending'): ?>
                         <form method="POST" action="cancel_order.php" style="display:inline;">
