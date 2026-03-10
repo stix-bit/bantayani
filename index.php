@@ -753,17 +753,18 @@ if (!isset($_SESSION['user_id'])) {
         <div class="nav-links">
             <?php if ($user_role === 'Farmer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
+                <a href="marketplace.php" class="nav-link">Marketplace</a>
                 <a href="./farmer/inventory.php" class="nav-link">My Inventory</a>
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
-                <a href="./farmer/benchmarking.php" class="nav-link">Pricing</a>
                 <a href="reports.php" class="nav-link">Reports</a>
                 <a href="announcements.php" class="nav-link">Announcements</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
+                
             <?php elseif ($user_role === 'Buyer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
-                <a href="./buyer/marketplace.php" class="nav-link">Marketplace</a>
+                <a href="marketplace.php" class="nav-link">Marketplace</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
                 <a href="reports.php" class="nav-link">Reports</a>
                 <a href="announcements.php" class="nav-link">Announcements</a>

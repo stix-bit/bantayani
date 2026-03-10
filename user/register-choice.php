@@ -91,12 +91,37 @@ session_start();
             font-weight: 600;
             font-size: 0.9rem;
         }
+
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 30px;
+            padding: 10px 18px;
+            background: var(--green);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background 150ms ease, transform 150ms ease;
+        }
+
+        .back-btn:hover {
+            background: var(--green-dark);
+            transform: translateY(-1px);
+        }
+
+        .back-container {
+            text-align: center;
+        }
     </style>
 </head>
 <body>
 <div class="page">
     <h1>What are you registering for?</h1>
     <p class="subtitle">Pick your path so we can tailor the onboarding experience.</p>
+
+    <div class="back-container">
+    <a href="login.php" class="back-btn">← Back to Login</a>
+    </div>
 
     <div class="card-grid">
         <a class="card" href="register.php?role=Buyer">

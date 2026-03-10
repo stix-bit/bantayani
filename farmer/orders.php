@@ -1,4 +1,4 @@
-status<?php
+<?php
 // No output before authentication check
 require_once __DIR__ . '/../includes/auth_helper.php';
 require_login('Farmer');
@@ -7,6 +7,26 @@ require_once __DIR__ . '/../includes/config.php';
 $farmer_id = $_SESSION['user_id'];
 $first_name = $_SESSION['first_name'];
 $profile_img = null;
+
+$user_id = $_SESSION['user_id'];
+$user_role = $_SESSION['role'];
+$first_name = $_SESSION['first_name'];
+
+// Admins go to admin dashboard
+if ($user_role === 'Admin') {
+    header('Location: admin/index.php');
+    exit;
+}
+
+$profile_img = null;
+
+$stmt = $conn->prepare("SELECT img_path FROM users WHERE user_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$stmt->bind_result($profile_img);
+$stmt->fetch();
+$stmt->close();
+
 
 // Get user profile image
 $stmt = $conn->prepare("SELECT img_path FROM users WHERE user_id = ?");
@@ -104,42 +124,63 @@ $orders = $stmt->get_result();
 <body>
 
 <nav class="navbar">
-    <div class="logo-container">
-        <div class="logo">BA</div>
-        <div class="logo-text">BANTAY<span>ANI</span></div>
-    </div>
-    
-    <div class="nav-links">
-        <a href="../index.php" class="nav-link">Dashboard</a>
-        <a href="inventory.php" class="nav-link">Inventory</a>
-        <a href="orders.php" class="nav-link active">Orders</a>
-        <a href="benchmarking.php" class="nav-link">Benchmarking</a>
-        <a href="profile.php" class="nav-link">Profile</a>
-        <a href="notifications.php" class="nav-link">Notifications</a>
-    </div>
-    
-    <div class="user-menu">
-        <?php
-            $profile_img = trim($profile_img ?? '');
-            $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
-            $public_path   = '/bantayani/' . $profile_img;
-        ?>
-        <a href="../user/profile.php" title="View Profile">
-            <div class="user-avatar">
-                <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
-                    <img src="<?= htmlspecialchars($public_path) ?>"
-                         alt="Profile"
-                         style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
-                <?php else: ?>
-                    <?= strtoupper(substr($first_name, 0, 1)) ?>
+        <div class="logo-container">
+            <div class="logo">BA</div>
+            <div class="logo-text">BANTAY<span>ANI</span></div>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="nav-search-container">
+            <form action=".../search.php" method="GET" class="nav-search-form">
+                <input 
+                    type="text" 
+                    name="q" 
+                    class="nav-search-input" 
+                    placeholder="Search users, farmers, buyers..." 
+                    autocomplete="off"
+                >
+                <button type="submit" class="nav-search-btn" title="Search">🔍</button>
+            </form>
+        </div>
+        
+        <div class="nav-links">
+            <?php if ($user_role === 'Farmer'): ?>
+                <a href="../index.php" class="nav-link">Dashboard</a>
+                <a href="inventory.php" class="nav-link">My Inventory</a>
+                <a href="orders.php" class="nav-link active">Orders</a>
+                <a href="cooperative.php" class="nav-link">Cooperative</a>
+                <a href="benchmarking.php" class="nav-link">Pricing</a>
+                <a href="reports.php" class="nav-link">Reports</a>
+                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="invoices.php" class="nav-link">Invoices</a>
+                <a href="notifications.php" class="nav-link">Notifications</a>
                 <?php endif; ?>
-            </div>
-        </a>
-        <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none; display:inline-block;">
-            Log Out
-        </a>
-    </div>
-</nav>
+        </div>
+        
+        <div class="user-menu"
+            <?php
+                $profile_img = trim($profile_img ?? '');
+                $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
+                $public_path   = '/bantayani/' . $profile_img;
+            ?>
+
+            <a href="<?= htmlspecialchars($profile_url) ?>" title="View Profile">
+                <div class="user-avatar">
+                    <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
+                        <img src="<?= htmlspecialchars($public_path) ?>"
+                             alt="Profile"
+                             style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                    <?php else: ?>
+                        <?= strtoupper(substr($first_name, 0, 1)) ?>
+                    <?php endif; ?>
+                </div>
+            </a>
+
+            <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none; display:inline-block;">
+                Log Out
+            </a>
+        </div>
+    </nav>
 
 <div class="container" style="max-width:900px; margin:40px auto; padding:0 20px;">
     <div class="card">
