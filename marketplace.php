@@ -93,17 +93,25 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
         </div>
         
         <div class="nav-links">
-            <a href="index.php" class="nav-link">Dashboard</a>
-            <a href="marketplace.php" class="nav-link active">Marketplace</a>
-            <?php if ($isBuyer): ?>
-                <a href="buyer/cart.php" class="nav-link">Cart</a>
-                <a href="buyer/orders.php" class="nav-link">My Orders</a>
-                <a href="buyer/ratings.php" class="nav-link">Ratings</a>
-                <a href="buyer/notifications.php" class="nav-link">Notifications</a>
-                <a href="buyer/profile.php" class="nav-link">Profile</a>
-            <?php else: ?>
-                <a href="farmer/notifications.php" class="nav-link">Notifications</a>
-                <a href="farmer/profile.php" class="nav-link">Profile</a>
+            <?php if (!$isBuyer): ?>
+                <a href="index.php" class="nav-link">Dashboard</a>
+                <a href="marketplace.php" class="nav-link active">Marketplace</a>
+                <a href="./farmer/inventory.php" class="nav-link">My Inventory</a>
+                <a href="./farmer/orders.php" class="nav-link">Orders</a>
+                <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
+                <a href="reports.php" class="nav-link">Reports</a>
+                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="invoices.php" class="nav-link">Invoices</a>
+                <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
+                
+            <?php elseif ($isBuyer): ?>
+                <a href="index.php" class="nav-link">Dashboard</a>
+                <a href="marketplace.php" class="nav-link active">Marketplace</a>
+                <a href="./buyer/orders.php" class="nav-link">My Orders</a>
+                <a href="reports.php" class="nav-link">Reports</a>
+                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="invoices.php" class="nav-link">Invoices</a>
+                <a href="./buyer/notifications.php" class="nav-link">Notifications</a>
             <?php endif; ?>
         </div>
         
