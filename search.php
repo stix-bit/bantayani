@@ -12,6 +12,12 @@ $user_id = $_SESSION['user_id'];
 $user_role = $_SESSION['role'];
 $first_name = $_SESSION['first_name'];
 
+if ($user_role === 'Farmer') {
+    $profile_url = './farmer/profile.php';
+} elseif ($user_role === 'Buyer') {
+    $profile_url = './buyer/profile.php';
+} 
+
 // Get profile image
 $profile_img = null;
 $stmt = $conn->prepare("SELECT img_path FROM users WHERE user_id = ?");
@@ -138,7 +144,7 @@ if (isset($_GET['logout'])) {
                 $absolute_path = $_SERVER['DOCUMENT_ROOT'] . '/bantayani/' . $profile_img;
                 $public_path   = '/bantayani/' . $profile_img;
             ?>
-            <a href="./user/profile.php" title="View Profile">
+            <a href="<?= htmlspecialchars($profile_url) ?>" title="View Profile">
                 <div class="user-avatar">
                     <?php if (!empty($profile_img) && file_exists($absolute_path)): ?>
                         <img src="<?= htmlspecialchars($public_path) ?>"
@@ -227,18 +233,20 @@ if (isset($_GET['logout'])) {
                                 <?php endif; ?>
 
                                 <div class="user-card-footer">
-                                    <?php if ($user['role'] === 'Farmer' && $user_role === 'Buyer'): ?>
-                                        <a href="marketplace.php" class="view-btn">
-                                            View Products
-                                        </a>
-                                    <?php elseif ($user['role'] === 'Buyer' && $user_role === 'Farmer'): ?>
-                                        <a href="./farmer/orders.php" class="view-btn">
-                                            View Orders
-                                        </a>
-                                    <?php elseif (!$is_admin): ?>
-                                        <a href="<?= htmlspecialchars($profile_url) ?>" class="view-btn">
-                                            View Profile
-                                        </a>
+                                    <?php if (!$is_admin): ?>
+                                        <?php if ($user['role'] === 'Farmer'): ?>
+                                            <a href="./user/view_profile.php?id=<?= (int) $user['user_id'] ?>" class="view-btn">
+                                                View Products
+                                            </a>
+                                        <?php elseif ($user['role'] === 'Buyer'): ?>
+                                            <a href="./user/view_profile.php?id=<?= (int) $user['user_id'] ?>" class="view-btn">
+                                                View Orders
+                                            </a>
+                                        <?php else: ?>
+                                            <a href="./user/view_profile.php?id=<?= (int) $user['user_id'] ?>" class="view-btn">
+                                                View Profile
+                                            </a>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
                             </div>

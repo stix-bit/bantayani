@@ -129,31 +129,17 @@ $orders = $stmt->get_result();
             <div class="logo-text">BANTAY<span>ANI</span></div>
         </div>
         
-        <!-- Search Bar -->
-        <div class="nav-search-container">
-            <form action=".../search.php" method="GET" class="nav-search-form">
-                <input 
-                    type="text" 
-                    name="q" 
-                    class="nav-search-input" 
-                    placeholder="Search users, farmers, buyers..." 
-                    autocomplete="off"
-                >
-                <button type="submit" class="nav-search-btn" title="Search">🔍</button>
-            </form>
-        </div>
-        
         <div class="nav-links">
             <?php if ($user_role === 'Farmer'): ?>
                  <a href="../index.php" class="nav-link">Dashboard</a>
                 <a href="../marketplace.php" class="nav-link">Marketplace</a>
                 <a href="inventory.php" class="nav-link">My Inventory</a>
-                <a href="orders.php" class="nav-link">Orders</a>
+                <a href="orders.php" class="nav-link active">Orders</a>
                 <a href="cooperative.php" class="nav-link">Cooperative</a>
                 <a href="../reports.php" class="nav-link">Reports</a>
                 <a href="../announcements.php" class="nav-link">Announcements</a>
                 <a href="../invoices.php" class="nav-link">Invoices</a>
-                <a href="notifications.php" class="nav-link active">Notifications</a>
+                <a href="notifications.php" class="nav-link">Notifications</a>
                 <?php endif; ?>
         </div>
         

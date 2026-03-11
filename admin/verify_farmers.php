@@ -500,8 +500,6 @@ $stats_stmt->close();
             <h1 style="margin: 0; color: var(--green-dark);">BantayAni Admin Portal</h1>
             <div class="nav-links">
                 <a href="index.php">Dashboard</a>
-                <a href="users.php">Users</a>
-                <a href="crops.php">Crops</a>
                 <a href="verify_farmers.php" class="active">Verification</a>
                 <a href="/bantayani/user/logout.php">Logout</a>
             </div>

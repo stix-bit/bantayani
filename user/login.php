@@ -101,12 +101,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding: 24px;
         }
 
-        .card {
-            width: min(420px, 100%);
+        .page-grid {
+            display: grid;
+            grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.45fr);
+            justify-items: center;
+            gap: 30px;
+            width: min(1100px, 100%);
+            align-items: start;
+        }
+
+        .card,
+        .about-card {
+            width: 100%;
+            max-width: 100%;
             background: white;
             border-radius: 28px;
-            padding: 48px 40px;
+            padding: 42px 36px;
             box-shadow: 0 25px 60px rgba(12, 92, 76, 0.2);
+        }
+
+        .card {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .about-card {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid rgba(31, 138, 112, 0.18);
+        }
+
+        .about-card h2 {
+            margin-top: 0;
+            color: var(--green-dark);
+            font-size: 1.7rem;
+        }
+
+        .about-card img {
+            display: block;
+            width: 96px;
+            height: 96px;
+            object-fit: contain;
+            margin-bottom: 20px;
+        }
+
+        .about-card p {
+            color: #334149;
+            line-height: 1.55;
+            margin: 0 0 14px;
+            text-align: justify;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 1.8rem;
+            color: var(--green-dark);
+            text-align: center;
         }
 
         h1 {
@@ -178,20 +228,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-decoration: none;
         }
 
+        @media (max-width: 900px) {
+            .page-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .card,
+            .about-card {
+                padding: 28px 22px;
+            }
+        }
+
         @media (max-width: 480px) {
-            .card {
-                padding: 36px 28px;
+            .card,
+            .about-card {
+                padding: 22px 16px;
+            }
+
+            body {
+                padding: 16px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .about-card h2 {
+                font-size: 1.4rem;
             }
         }
     </style>
 </head>
 <body>
-<div class="card">
-    <h1>Welcome!</h1>
-    <p class="subtitle">Sign in to continue your BantayAni journey.</p>
+<div class="page-grid">
+    <div class="card">
+        <h1>Welcome!</h1>
+        <p class="subtitle">Sign in to continue your BantayAni journey.</p>
 
-    <?php if ($info_message !== '') : ?>
-        <div class="alert">
+        <?php if ($info_message !== '') : ?>
+            <div class="alert">
             <ul>
                 <li><?= htmlspecialchars($info_message, ENT_QUOTES, 'UTF-8'); ?></li>
             </ul>
@@ -219,6 +294,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 
     <p class="switch-link">Don’t have an account? <a href="register-choice.php">Create one</a>.</p>
+</div>
+
+    <aside class="about-card">
+        <img src="../images/logo.png" alt="BantayAni logo" />
+        <h2>About BantayAni</h2>
+        <p>BANTAY-ANI is a farm-to-market trading and logistics platform designed to support small-scale farmers, buyers, and local agricultural authorities through a centralized digital system. Our mission is to improve transparency, efficiency, and connectivity within the agricultural supply chain by providing tools that simplify production monitoring, market access, and delivery coordination.</p>
+        <p>Many farmers still rely on traditional methods for managing harvests, communicating with buyers, and tracking transactions. These manual processes often limit their access to markets and reduce their bargaining power. BANTAY-ANI addresses these challenges by offering an integrated online platform where farmers can manage crop inventory, schedule harvests, coordinate deliveries, and connect directly with verified buyers.</p>
+        <p>At its core, BANTAY-ANI aims to empower farmers, strengthen local agriculture, and create a more transparent and sustainable farm-to-market ecosystem for communities.</p>
+    </aside>
 </div>
 </body>
 </html>

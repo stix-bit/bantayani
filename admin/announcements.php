@@ -607,9 +607,7 @@ if (isset($_GET['logout'])) {
         
         <div class="nav-links">
             <a href="index.php" class="nav-link">Dashboard</a>
-            <a href="users.php" class="nav-link">Users</a>
             <a href="announcements.php" class="nav-link active">Announcements</a>
-            <a href="verify_farmers.php" class="nav-link">Verification</a>
         </div>
         
         <div class="user-menu">

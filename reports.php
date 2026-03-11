@@ -727,6 +727,7 @@ $stmt->close();
         
         <!-- Search Bar -->
         <div class="nav-search-container">
+            <?php if($user_role === 'Farmer' || $user_role === 'Buyer'): ?>
             <form action="search.php" method="GET" class="nav-search-form">
                 <input 
                     type="text" 
@@ -737,6 +738,7 @@ $stmt->close();
                 >
                 <button type="submit" class="nav-search-btn" title="Search">🔍</button>
             </form>
+            <?php endif; ?>
         </div>
         
         <div class="nav-links">
@@ -752,9 +754,7 @@ $stmt->close();
                 <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
             <?php elseif ($user_role === 'Admin'): ?>
                 <a href="./admin/index.php" class="nav-link">Dashboard</a>
-                <a href="./admin/orders.php" class="nav-link">Orders</a>
                 <a href="reports.php" class="nav-link active">Reports</a>
-                <a href="./admin/announcements.php" class="nav-link">Announcements</a>
             <?php endif; ?>
         </div>
         

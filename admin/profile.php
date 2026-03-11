@@ -411,9 +411,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h1 style="margin: 0; color: var(--green-dark);">BantayAni Admin Portal</h1>
             <div class="nav-links">
                 <a href="index.php">Dashboard</a>
-                <a href="users.php">Users</a>
-                <a href="../reports.php" class="nav-link"><span class="nav-icon">📈</span><span>Reports</span></a>
-                <a href="benchmarking.php">Pricing</a>
                 <a href="profile.php" style="background: rgba(31, 138, 112, 0.1);">Profile</a>
                 <a href="/bantayani/user/logout.php">Logout</a>
             </div>

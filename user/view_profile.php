@@ -37,6 +37,7 @@ $public_path = !empty($profile_img) ? '../' . ltrim($profile_img, '/') : $defaul
 // Role-specific data
 $farmer_profile = [];
 $buyer_profile = [];
+$buyer_orders = [];
 $verification_docs = [];
 $inventory_summary = [];
 $inventory_items = [];
@@ -85,7 +86,12 @@ if ($role === 'Farmer') {
 
     // Individual products
     $stmt = $conn->prepare("
-        SELECT ci.inventory_id, c.crop_name, ci.unit, ci.price, ci.quantity
+        SELECT ci.inventory_id,
+               c.crop_name,
+               ci.unit,
+               ci.price,
+               ci.quantity,
+               (SELECT image_path FROM crop_images WHERE inventory_id = ci.inventory_id ORDER BY is_primary DESC, image_id ASC LIMIT 1) AS image_path
         FROM crops_inventory ci
         JOIN crops c ON ci.crop_id = c.crop_id
         WHERE ci.farmer_id = ? AND ci.quantity > 0
@@ -118,6 +124,18 @@ if ($role === 'Buyer') {
     $stmt->bind_param('i', $profile_id);
     $stmt->execute();
     $buyer_profile = $stmt->get_result()->fetch_assoc() ?: [];
+    $stmt->close();
+
+    $stmt = $conn->prepare("
+        SELECT o.order_id, o.order_date, o.order_status, p.payment_status
+        FROM orders o
+        LEFT JOIN payment p ON o.order_id = p.order_id
+        WHERE o.buyer_id = ?
+        ORDER BY o.order_date DESC
+    ");
+    $stmt->bind_param('i', $profile_id);
+    $stmt->execute();
+    $buyer_orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 }
 ?>
@@ -285,6 +303,47 @@ if ($role === 'Buyer') {
             display: block;
         }
 
+        .products-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .product-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .product-item img {
+            width: 72px;
+            height: 72px;
+            border-radius: 10px;
+            object-fit: cover;
+            background: #f3f4f6;
+            flex-shrink: 0;
+        }
+
+        .product-item .product-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            color: #334149;
+        }
+
+        .product-item .product-meta a {
+            font-weight: 600;
+            color: var(--green-dark);
+        }
+
+        .product-item .product-meta p {
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
         .products-list p {
             margin: 4px 0;
             font-size: 0.95rem;
@@ -395,6 +454,24 @@ if ($role === 'Buyer') {
             <?php endif; ?>
         </div>
 
+        <?php if ($role === 'Buyer'): ?>
+        <!-- <div class="profile-grid">
+            <div class="card">
+                <h2>Orders</h2>
+                <?php if (!empty($buyer_orders)): ?>
+                    <?php foreach ($buyer_orders as $order): ?>
+                        <div class="detail-row" style="display: flex; flex-direction: column; gap: 4px;">
+                            <span><strong>Order #<?= (int) $order['order_id'] ?></strong> - <?= date('M d, Y', strtotime($order['order_date'])) ?></span>
+                            <span>Status: <?= htmlspecialchars($order['order_status'] ?? '—') ?> | Payment: <?= htmlspecialchars($order['payment_status'] ?? 'Pending') ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p>No orders found for this user.</p>
+                <?php endif; ?>
+            </div>
+        </div> -->
+        <?php endif; ?>
+
         <?php if ($role === 'Farmer'): ?>
         <div class="profile-grid">
             <div class="card">
@@ -402,13 +479,18 @@ if ($role === 'Buyer') {
                 <?php if (!empty($inventory_items)): ?>
                     <div class="products-list">
                         <?php foreach ($inventory_items as $item): ?>
-                            <p>
-                                <a href="../buyer/product.php?id=<?= (int) $item['inventory_id'] ?>">
-                                    <?= htmlspecialchars($item['crop_name']) ?>
-                                </a>
-                                – <?= htmlspecialchars($item['quantity']) ?> <?= htmlspecialchars($item['unit']) ?>
-                                @ ₱<?= number_format((float) $item['price'], 2) ?>
-                            </p>
+                            <?php
+                                $img_path = !empty($item['image_path']) ? '../' . ltrim($item['image_path'], '/') : '../images/default-farm.png';
+                            ?>
+                            <div class="product-item">
+                                <img src="<?= htmlspecialchars($img_path) ?>" alt="<?= htmlspecialchars($item['crop_name']) ?>" onerror="this.src='../images/default-farm.png';">
+                                <div class="product-meta">
+                                    <a href="../buyer/product.php?id=<?= (int) $item['inventory_id'] ?>">
+                                        <?= htmlspecialchars($item['crop_name']) ?>
+                                    </a>
+                                    <p><?= htmlspecialchars($item['quantity']) ?> <?= htmlspecialchars($item['unit']) ?> @ ₱<?= number_format((float) $item['price'], 2) ?></p>
+                                </div>
+                            </div>
                         <?php endforeach; ?>
                     </div>
                 <?php else: ?>
