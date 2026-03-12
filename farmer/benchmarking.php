@@ -174,8 +174,8 @@ function getStatus($farmer, $avg) {
                         <th>Crop</th>
                         <th>Your Price</th>
                         <th>Market Avg</th>
-                        <th>Min</th>
-                        <th>Max</th>
+                        <!-- <th>Min</th>
+                        <th>Max</th> -->
                         <th>Dynamic Recommended</th>
                         <th>Allowed Range</th>
                         <th>Recommendation</th>
@@ -186,15 +186,32 @@ function getStatus($farmer, $avg) {
                         <?php foreach ($data as $row): 
                             $status = getStatus($row['farmer_price'], $row['market_avg']);
                             $dr = $dynamic_ranges[$row['crop_id']] ?? null;
+                            $unit = trim($row['unit'] ?? '');
+                            $unit_suffix = $unit !== '' ? ' / ' . htmlspecialchars($unit) : '';
                         ?>
                         <tr>
-                            <td><?= htmlspecialchars($row['crop_name']) ?> (<?= $row['unit'] ?>)</td>
-                            <td class="price-cell"><?= $row['farmer_price'] ? '₱'.number_format($row['farmer_price'], 2) : '-' ?></td>
-                            <td class="price-cell">₱<?= number_format($row['market_avg'],2) ?></td>
-                            <td class="price-cell">₱<?= number_format($row['market_min'], 2) ?></td>
-                            <td class="price-cell">₱<?= number_format($row['market_max'], 2) ?></td>
-                            <td class="price-cell"><?= $dr && $dr['has_data'] ? '₱'.number_format($dr['recommended'], 2) : '—' ?></td>
-                            <td class="price-cell" style="font-size:0.9rem;"><?= $dr && $dr['has_data'] ? '₱'.number_format($dr['price_min'], 2).' – ₱'.number_format($dr['price_max'], 2) : '—' ?></td>
+                            <td>
+                                <?= htmlspecialchars($row['crop_name']) ?>
+                                <?= $unit !== '' ? ' ('.htmlspecialchars($unit).')' : '' ?>
+                            </td>
+                            <td class="price-cell">
+                                <?= $row['farmer_price'] ? '₱'.number_format($row['farmer_price'], 2) . $unit_suffix : '-' ?>
+                            </td>
+                            <td class="price-cell">
+                                <?= $row['market_avg'] !== null ? '₱'.number_format($row['market_avg'],2) . $unit_suffix : '—' ?>
+                            </td>
+                            <!-- <td class="price-cell">₱<?= number_format($row['market_min'], 2) ?></td>
+                            <td class="price-cell">₱<?= number_format($row['market_max'], 2) ?></td> -->
+                            <td class="price-cell">
+                                <?= $dr && $dr['has_data'] ? '₱'.number_format($dr['recommended'], 2) . $unit_suffix : '—' ?>
+                            </td>
+                            <td class="price-cell" style="font-size:0.9rem;">
+                                <?php if ($dr && $dr['has_data']): ?>
+                                    ₱<?= number_format($dr['price_min'], 2) ?> – ₱<?= number_format($dr['price_max'], 2) ?><?= $unit_suffix ?>
+                                <?php else: ?>
+                                    —
+                                <?php endif; ?>
+                            </td>
                             <td class="status-<?= strtolower(str_replace(' ', '', $status)) ?>">
                                 <?= $status ?>
                             </td>
