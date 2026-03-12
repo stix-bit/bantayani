@@ -13,6 +13,13 @@ $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
 
+$stmt = $conn->prepare("SELECT buyer_id FROM buyer_profiles WHERE buyer_id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$stmt->bind_result($buyer_id);
+$stmt->fetch();
+$stmt->close();
+
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($id <= 0) {
     header('Location: ../marketplace.php');
@@ -102,6 +109,29 @@ $stmt = $conn->prepare("
 $stmt->bind_param("i", $id);
 $stmt->execute();
 $product_reviews = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+// Check if buyer can review (must have a delivered order for this product)
+$can_review = false;
+
+$stmt = $conn->prepare("
+    SELECT oi.order_id
+    FROM order_items oi
+    INNER JOIN orders o ON oi.order_id = o.order_id
+    WHERE oi.inventory_id = ?
+    AND o.buyer_id = ?
+    AND o.order_status = 'Confirmed'
+    LIMIT 1
+");
+
+$stmt->bind_param("ii", $id, $user_id);
+$stmt->execute();
+$stmt->store_result();
+
+if ($stmt->num_rows > 0) {
+    $can_review = true;
+}
+
 $stmt->close();
 ?>
 <!DOCTYPE html>
@@ -525,24 +555,35 @@ $stmt->close();
             <?php endif; ?>
 
             <!-- Review submission form -->
-            <form method="post" action="submit_rating.php" style="margin-top:16px;">
-                <input type="hidden" name="inventory_id" value="<?= (int)$row['inventory_id'] ?>">
-                <input type="hidden" name="farmer_id" value="<?= (int)$farmer_id ?>">
+            <?php if ($can_review): ?>
 
-                <label for="rating">Your rating:</label>
-                <select name="rating" id="rating" required>
-                    <option value="">Select rating</option>
-                    <option value="5">⭐⭐⭐⭐⭐ (5)</option>
-                    <option value="4">⭐⭐⭐⭐ (4)</option>
-                    <option value="3">⭐⭐⭐ (3)</option>
-                    <option value="2">⭐⭐ (2)</option>
-                    <option value="1">⭐ (1)</option>
-                </select>
+                <form method="post" action="submit_rating.php" style="margin-top:16px;">
+                    <input type="hidden" name="inventory_id" value="<?= (int)$row['inventory_id'] ?>">
+                    <input type="hidden" name="farmer_id" value="<?= (int)$farmer_id ?>">
 
-                <textarea name="comment" placeholder="Leave a comment (optional)" style="width:100%; margin-top:8px; padding:8px; border-radius:8px; border:1px solid #ddd;"></textarea>
+                    <label for="rating">Your rating:</label>
+                    <select name="rating" id="rating" required>
+                        <option value="">Select rating</option>
+                        <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                        <option value="4">⭐⭐⭐⭐ (4)</option>
+                        <option value="3">⭐⭐⭐ (3)</option>
+                        <option value="2">⭐⭐ (2)</option>
+                        <option value="1">⭐ (1)</option>
+                    </select>
 
-                <button type="submit" class="btn" style="margin-top:8px;">Submit Review</button>
-            </form>
+                    <textarea name="comment" placeholder="Leave a comment (optional)"
+                        style="width:100%; margin-top:8px; padding:8px; border-radius:8px; border:1px solid #ddd;"></textarea>
+
+                    <button type="submit" class="btn" style="margin-top:8px;">Submit Review</button>
+                </form>
+
+                <?php else: ?>
+
+                <div class="reviews-placeholder" style="margin-top:16px;">
+                    You can only review this product after your order has been <strong>delivered</strong>.
+                </div>
+
+                <?php endif; ?>
         </div>
         </div>
     </div>
