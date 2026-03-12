@@ -23,7 +23,7 @@ $stmt->fetch();
 $stmt->close();
 
 // Build search filter conditions for inventory and pool separately
-$inventoryFilter = ["ci.quantity > 0"];
+$inventoryFilter = ["ci.quantity > 0", "ci.harvest_status = 'Confirmed'"];
 $poolFilter = ["(p.total_quantity IS NULL OR p.total_quantity > 0)"];
 if ($search_query !== '') {
     $escapedSearch = $conn->real_escape_string($search_query);
