@@ -865,8 +865,15 @@ if (!isset($_SESSION['user_id'])) {
                 <!-- Recent Orders Section -->
                 <div class="section-card">
                     <div class="section-header">
-                        <h3 class="section-title">Recent Orders</h3>
-                        <a href="orders.php" class="view-all">View All →</a>
+                        <?php if ($user_role === 'Farmer'): ?>
+                            <h3 class="section-title">Recent Orders</h3>
+                            <a href="farmer/orders.php" class="view-all">View All →</a>
+                        <?php elseif  ($user_role === 'Buyer'): ?>
+                            <h3 class="section-title">Recent Orders</h3>
+                            <a href="buyer/orders.php" class="view-all">View All →</a>
+                            
+                        <?php endif; ?>
+                        
                     </div>
                     
                     <?php if (!empty($recent_orders)): ?>
@@ -934,16 +941,6 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="action-icon">📋</div>
                             <div class="action-title">My Orders</div>
                             <div class="action-desc">Track your purchases</div>
-                        </a>
-                        <a href="search.php" class="action-card">
-                            <div class="action-icon">👨‍🌾</div>
-                            <div class="action-title">Browse Farmers</div>
-                            <div class="action-desc">Connect with local farmers</div>
-                        </a>
-                        <a href="settings.php" class="action-card">
-                            <div class="action-icon">⚙️</div>
-                            <div class="action-title">Account Settings</div>
-                            <div class="action-desc">Update your preferences</div>
                         </a>
                     <?php endif; ?>
                 </div>
