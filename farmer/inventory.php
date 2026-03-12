@@ -663,7 +663,13 @@ if (!empty($due_harvests)) {
                                             <?php
                                                 $can_confirm = false;
                                                 if (!empty($h['harvest_date']) && $h['harvest_date'] !== '0000-00-00') {
-                                                    $can_confirm = strtotime($h['harvest_date']) <= strtotime('today');
+                                                    $harvest_date_only = date('Y-m-d', strtotime($h['harvest_date']));
+                                                    $today = date('Y-m-d');
+                                                    $tomorrow = date('Y-m-d', strtotime('+1 day'));
+                                                    // Allow confirmation for today or tomorrow (handles timezone issues)
+                                                    $can_confirm = ($harvest_date_only <= $tomorrow);
+                                                    // Debug: Remove comment below to see values
+                                                    echo "<!-- Harvest: '$h[harvest_date]' -> '$harvest_date_only' vs '$today'/'$tomorrow' = $can_confirm -->";
                                                 }
                                             ?>
                                             <?php if ($can_confirm): ?>

@@ -3,6 +3,41 @@ session_start();
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/dynamic_pricing.php';
 
+/**
+ * Check if farmer profile exists, create one if missing
+ */
+function checkAndCreateFarmerProfile($conn, $farmer_id) {
+    // Check if farmer profile exists
+    $stmt = $conn->prepare('SELECT farmer_id FROM farmer_profiles WHERE farmer_id = ?');
+    $stmt->bind_param('i', $farmer_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows === 0) {
+        // Farmer profile doesn't exist, create one with default values
+        $stmt->close();
+        
+        // Get user info for default farm name
+        $stmt = $conn->prepare('SELECT first_name, last_name FROM users WHERE user_id = ?');
+        $stmt->bind_param('i', $farmer_id);
+        $stmt->execute();
+        $user_result = $stmt->get_result();
+        $user = $user_result->fetch_assoc();
+        $stmt->close();
+        
+        $default_farm_name = ($user['first_name'] ?? '') . "'s Farm";
+        $default_location = "Location not specified";
+        
+        // Insert farmer profile
+        $stmt = $conn->prepare('INSERT INTO farmer_profiles (farmer_id, farm_name, farm_location) VALUES (?, ?, ?)');
+        $stmt->bind_param('iss', $farmer_id, $default_farm_name, $default_location);
+        $stmt->execute();
+        $stmt->close();
+    } else {
+        $stmt->close();
+    }
+}
+
 // Check farmer login
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
     header('Location: ../user/login.php');
@@ -10,6 +45,9 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
 }
 
 $farmer_id = $_SESSION['user_id'];
+
+// Ensure farmer profile exists
+checkAndCreateFarmerProfile($conn, $farmer_id);
 
 // Fetch crop categories
 $categories_result = $conn->query("SELECT category_id, category_name FROM crop_categories ORDER BY display_order, category_name");
