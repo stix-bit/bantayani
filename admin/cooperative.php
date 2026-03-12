@@ -8,11 +8,72 @@ $has_unit_price = false;
 $cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
 if ($cols && $cols->num_rows > 0) $has_unit_price = true;
 
-// Handle actions
-if (isset($_POST['action'], $_POST['pool_id'])) {
-    $pool_id = (int) $_POST['pool_id'];
+// Handle cooperative pool and cooperative order actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Update order status for cooperative orders
+    if (isset($_POST['update_order_status'], $_POST['order_id'], $_POST['order_status'])) {
+        $order_id = (int) $_POST['order_id'];
+        $new_status = trim($_POST['order_status']);
+        $valid_status = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+        if ($order_id > 0 && in_array($new_status, $valid_status, true)) {
+            // Update order status
+            $stmt = $conn->prepare("UPDATE orders SET order_status = ? WHERE order_id = ?");
+            $stmt->bind_param('si', $new_status, $order_id);
+            $stmt->execute();
+            $stmt->close();
 
-    if ($_POST['action'] === 'delete') {
+            // If order is confirmed, mark related payments and invoice as paid
+            if ($new_status === 'Confirmed') {
+                // Update any payments for this order
+                $pay_stmt = $conn->prepare("
+                    UPDATE payment
+                    SET payment_status = 'Paid',
+                        payment_date = NOW()
+                    WHERE order_id = ?
+                ");
+                if ($pay_stmt) {
+                    $pay_stmt->bind_param('i', $order_id);
+                    $pay_stmt->execute();
+                    $pay_stmt->close();
+                }
+
+                // Update invoice record, if any
+                $inv_stmt = $conn->prepare("
+                    UPDATE invoices
+                    SET payment_status = 'Paid'
+                    WHERE order_id = ?
+                ");
+                if ($inv_stmt) {
+                    $inv_stmt->bind_param('i', $order_id);
+                    $inv_stmt->execute();
+                    $inv_stmt->close();
+                }
+            }
+        }
+        header('Location: cooperative.php');
+        exit;
+    }
+
+    // Delete cooperative order
+    if (isset($_POST['delete_order'], $_POST['order_id'])) {
+        $order_id = (int) $_POST['order_id'];
+        if ($order_id > 0) {
+            $stmt = $conn->prepare("DELETE FROM order_items WHERE order_id = ? AND pool_id IS NOT NULL");
+            $stmt->bind_param('i', $order_id);
+            $stmt->execute();
+            $stmt->close();
+            $stmt = $conn->prepare("DELETE FROM orders WHERE order_id = ?");
+            $stmt->bind_param('i', $order_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+        header('Location: cooperative.php');
+        exit;
+    }
+
+    // Pool delete action
+    if (isset($_POST['action'], $_POST['pool_id']) && $_POST['action'] === 'delete') {
+        $pool_id = (int) $_POST['pool_id'];
         $stmt = $conn->prepare("DELETE FROM cooperative_members WHERE pool_id = ?");
         $stmt->bind_param("i", $pool_id);
         $stmt->execute();
@@ -21,11 +82,11 @@ if (isset($_POST['action'], $_POST['pool_id'])) {
         $stmt->bind_param("i", $pool_id);
         $stmt->execute();
         $stmt->close();
+        header('Location: cooperative.php');
+        exit;
     }
-
-    header("Location: cooperative.php");
-    exit;
 }
+
 
 // Fetch all cooperative pools with member count
 $select_extras = ($has_unit_price ? ", p.unit_price" : "");
@@ -37,6 +98,27 @@ $sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, p.created_at, c.crop_name
         ORDER BY c.crop_name ASC, p.pool_id ASC";
 $result = $conn->query($sql);
 $pools = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+
+// Fetch cooperative orders (orders that include pool based items)
+$coop_orders_sql = "
+    SELECT
+        o.order_id,
+        o.order_date,
+        o.order_status,
+        CONCAT(u.first_name, ' ', u.last_name) AS buyer_name,
+        u.email AS buyer_email,
+        (SELECT COALESCE(SUM(COALESCE(cp.unit_price,0) * oi.quantity), 0)
+         FROM order_items oi
+         JOIN cooperative_pools cp ON oi.pool_id = cp.pool_id
+         WHERE oi.order_id = o.order_id AND oi.pool_id IS NOT NULL) AS order_total
+    FROM orders o
+    JOIN buyer_profiles bp ON o.buyer_id = bp.buyer_id
+    JOIN users u ON bp.buyer_id = u.user_id
+    WHERE EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.order_id AND oi.pool_id IS NOT NULL)
+    ORDER BY o.order_date DESC
+";
+$coop_orders_result = $conn->query($coop_orders_sql);
+$coop_orders = $coop_orders_result ? $coop_orders_result->fetch_all(MYSQLI_ASSOC) : [];
 
 ?>
 <!DOCTYPE html>
@@ -133,6 +215,58 @@ $pools = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
                         <td colspan="<?= $has_unit_price ? 6 : 5 ?>" style="text-align:center; padding:40px;">No cooperative pools found.</td>
                     </tr>
                 <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-card" style="margin-top: 24px;">
+            <div class="table-header">
+                <h3>Cooperative Orders</h3>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Buyer</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (!empty($coop_orders)): ?>
+                        <?php foreach ($coop_orders as $order): ?>
+                            <tr>
+                                <td>#<?= (int)$order['order_id'] ?></td>
+                                <td><?= htmlspecialchars($order['buyer_name']) ?><br><small><?= htmlspecialchars($order['buyer_email']) ?></small></td>
+                                <td><?= date('M d, Y H:i', strtotime($order['order_date'])) ?></td>
+                                <td><span class="status-badge status-<?= strtolower($order['order_status']) ?>"><?= htmlspecialchars($order['order_status']) ?></span></td>
+                                <td>₱<?= number_format((float)$order['order_total'], 2) ?></td>
+                                <td>
+                                    <form method="POST" style="display:inline; margin-right: 8px;">
+                                        <input type="hidden" name="update_order_status" value="1">
+                                        <input type="hidden" name="order_id" value="<?= (int)$order['order_id'] ?>">
+                                        <select name="order_status" style="margin-right:5px;">
+                                            <?php foreach(['Pending','Confirmed','Shipped','Delivered','Cancelled'] as $s): ?>
+                                                <option value="<?= $s ?>" <?= $order['order_status'] === $s ? 'selected' : '' ?>><?= $s ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" class="confirm-btn">Update</button>
+                                    </form>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="delete_order" value="1">
+                                        <input type="hidden" name="order_id" value="<?= (int)$order['order_id'] ?>">
+                                        <button type="submit" class="confirm-btn danger" onclick="return confirm('Delete this cooperative order? This cannot be undone.')">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="6" style="text-align:center; padding:40px;">No cooperative orders found.</td>
+                        </tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>

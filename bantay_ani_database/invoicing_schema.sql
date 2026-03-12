@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS invoices (
 CREATE TABLE IF NOT EXISTS invoice_items (
     invoice_item_id INT AUTO_INCREMENT PRIMARY KEY,
     invoice_id INT NOT NULL,
-    inventory_id INT NOT NULL,
+    inventory_id INT NULL,
     crop_name VARCHAR(100) NOT NULL,
     quantity DECIMAL(10, 2) NOT NULL,
     unit_price DECIMAL(10, 2) NOT NULL,
@@ -85,39 +85,92 @@ AFTER UPDATE ON orders
 FOR EACH ROW
 BEGIN
     IF NEW.order_status = 'Confirmed' AND OLD.order_status != 'Confirmed' THEN
-        -- Generate invoice number
-        SET @invoice_num = CONCAT('INV-', YEAR(NOW()), LPAD(MONTH(NOW()), 2, '0'), '-', LPAD(NEW.order_id, 6, '0'));
-        
-        -- Calculate totals from order items
-        SET @subtotal = (
-            SELECT SUM(ci.price * oi.quantity)
+        -- Avoid duplicate invoice on repeated transitions to Confirmed
+        IF NOT EXISTS (SELECT 1 FROM invoices WHERE order_id = NEW.order_id) THEN
+
+            -- Generate invoice number
+            SET @invoice_num = CONCAT('INV-', YEAR(NOW()), LPAD(MONTH(NOW()), 2, '0'), '-', LPAD(NEW.order_id, 6, '0'));
+
+            -- Calculate totals from order items (inventory + cooperative pool)
+            SET @subtotal = (
+                SELECT COALESCE(SUM(
+                    CASE
+                        WHEN oi.inventory_id IS NOT NULL THEN COALESCE(ci.price, 0) * oi.quantity
+                        WHEN oi.pool_id IS NOT NULL THEN COALESCE(cp.unit_price, 0) * oi.quantity
+                        ELSE 0
+                    END
+                ), 0)
+                FROM order_items oi
+                LEFT JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+                LEFT JOIN cooperative_pools cp ON oi.pool_id = cp.pool_id
+                WHERE oi.order_id = NEW.order_id
+            );
+
+            -- Get farmer_id from first available item (inventory item preferred, else pool contribution)
+            SET @farmer_id = (
+                SELECT COALESCE(ci.farmer_id,
+                                 (SELECT cm.farmer_id FROM cooperative_members cm WHERE cm.pool_id = oi.pool_id LIMIT 1),
+                                 NEW.buyer_id)
+                FROM order_items oi
+                LEFT JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+                WHERE oi.order_id = NEW.order_id
+                LIMIT 1
+            );
+
+            -- Create invoice
+            INSERT INTO invoices (
+                invoice_number, 
+                order_id, 
+                buyer_id, 
+                farmer_id,
+                subtotal, 
+                total_amount, 
+                due_date
+            ) VALUES (
+                @invoice_num,
+                NEW.order_id,
+                NEW.buyer_id,
+                @farmer_id,
+                @subtotal,
+                @subtotal,
+                DATE_ADD(NOW(), INTERVAL 7 DAY)
+            );
+
+            -- Get the created invoice_id
+            SET @new_invoice_id = LAST_INSERT_ID();
+
+            -- Insert invoice items for inventory-based rows
+            INSERT INTO invoice_items (invoice_id, inventory_id, crop_name, quantity, unit_price, total_price)
+            SELECT
+                @new_invoice_id,
+                oi.inventory_id,
+                c.crop_name,
+                oi.quantity,
+                ci.price,
+                ci.price * oi.quantity
             FROM order_items oi
             JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-            WHERE oi.order_id = NEW.order_id
-        );
-        
-        -- Get farmer_id from first item in order
-        SET @farmer_id = (
-            SELECT ci.farmer_id
+            JOIN crops c ON ci.crop_id = c.crop_id
+            WHERE oi.order_id = NEW.order_id AND oi.inventory_id IS NOT NULL;
+
+            -- Insert invoice items for cooperative pool rows
+            INSERT INTO invoice_items (invoice_id, inventory_id, crop_name, quantity, unit_price, total_price)
+            SELECT
+                @new_invoice_id,
+                NULL,
+                c.crop_name,
+                oi.quantity,
+                COALESCE(cp.unit_price, 0),
+                COALESCE(cp.unit_price, 0) * oi.quantity
             FROM order_items oi
-            JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-            WHERE oi.order_id = NEW.order_id
-            LIMIT 1
-        );
-        
-        -- Create invoice
-        INSERT INTO invoices (
-            invoice_number, 
-            order_id, 
-            buyer_id, 
-            farmer_id,
-            subtotal, 
-            total_amount, 
-            due_date
-        ) VALUES (
-            @invoice_num,
-            NEW.order_id,
-            NEW.buyer_id,
+            JOIN cooperative_pools cp ON oi.pool_id = cp.pool_id
+            JOIN crops c ON cp.crop_id = c.crop_id
+            WHERE oi.order_id = NEW.order_id AND oi.pool_id IS NOT NULL;
+
+        END IF;
+    END IF;
+END//
+DELIMITER ;
             @farmer_id,
             @subtotal,
             @subtotal,

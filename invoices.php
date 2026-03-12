@@ -555,6 +555,7 @@ if (isset($_GET['logout'])) {
                             <th><?= $user_role === 'Buyer' ? 'Farmer' : 'Buyer' ?></th>
                             <th>Amount</th>
                             <th>Status</th>
+                            <th>Order Status</th>
                             <th>Due Date</th>
                             <th>Actions</th>
                         </tr>
@@ -579,6 +580,7 @@ if (isset($_GET['logout'])) {
                                     <?= $invoice['computed_status'] ?>
                                     </span>
                                 </td>
+                                <td><?= htmlspecialchars($invoice['order_status'] ?? '-') ?></td>
                                 <td>
                                     <?php if ($invoice['due_date']): ?>
                                         <?= date('M d, Y', strtotime($invoice['due_date'])) ?>

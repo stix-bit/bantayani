@@ -13,15 +13,36 @@ $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
 
-// Weather Alerts (last 24 hours)
+$region = null;
+$region_stmt = $conn->prepare("SELECT region FROM farmer_profiles WHERE farmer_id = ?");
+if ($region_stmt) {
+    $region_stmt->bind_param('i', $farmer_id);
+    $region_stmt->execute();
+    $region_result = $region_stmt->get_result();
+    if ($region_result) {
+        $row = $region_result->fetch_assoc();
+        if ($row && !empty($row['region'])) {
+            $region = $row['region'];
+        }
+    }
+    $region_stmt->close();
+}
+
+// Latest Weather Alert for Farmer's Region (last 24 hours)
 $weather_alerts = [];
-$wa = $conn->query("
+$wa = $conn->prepare("
     SELECT * FROM weather_alerts
     WHERE created_at > NOW() - INTERVAL 1 DAY
-    ORDER BY CASE severity WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END, created_at DESC
-    LIMIT 10
+      AND (region = ? OR region IS NULL)
+    ORDER BY created_at DESC, CASE severity WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END
+    LIMIT 1
 ");
-if ($wa) $weather_alerts = $wa->fetch_all(MYSQLI_ASSOC);
+if ($wa) {
+    $wa->bind_param('s', $region);
+    $wa->execute();
+    $weather_alerts = $wa->get_result()->fetch_all(MYSQLI_ASSOC);
+    $wa->close();
+}
 
 // Announcements (for Farmers / All, active, not expired)
 $announcements = [];

@@ -59,8 +59,13 @@ function getDynamicPriceRange($conn, $crop_id, $days = DYNAMIC_PRICING_DEFAULT_D
         $out['supply'] = (float) $row['supply'];
     }
 
-    // Current listings: average price for this crop (active inventory)
-    $stmt = $conn->prepare("SELECT AVG(price) AS listing_avg, MIN(price) AS listing_min, MAX(price) AS listing_max FROM crops_inventory WHERE crop_id = ? AND price IS NOT NULL AND price > 0");
+    // Current listings: average price for this crop (only confirmed harvest entries)
+    $stmt = $conn->prepare("SELECT AVG(price) AS listing_avg, MIN(price) AS listing_min, MAX(price) AS listing_max
+        FROM crops_inventory
+        WHERE crop_id = ?
+          AND price IS NOT NULL
+          AND price > 0
+          AND harvest_status = 'Confirmed'");
     $stmt->bind_param("i", $crop_id);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();

@@ -21,10 +21,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     $new_status = trim($_POST['order_status'] ?? '');
     $valid = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
     if ($order_id > 0 && in_array($new_status, $valid)) {
+        // Update order status
         $stmt = $conn->prepare("UPDATE orders SET order_status = ? WHERE order_id = ?");
         $stmt->bind_param('si', $new_status, $order_id);
         $stmt->execute();
         $stmt->close();
+
+        // If order is confirmed, also mark related payments and invoice as paid
+        if ($new_status === 'Confirmed') {
+            $pay_stmt = $conn->prepare("
+                UPDATE payment
+                SET payment_status = 'Paid',
+                    payment_date = NOW()
+                WHERE order_id = ?
+            ");
+            if ($pay_stmt) {
+                $pay_stmt->bind_param('i', $order_id);
+                $pay_stmt->execute();
+                $pay_stmt->close();
+            }
+
+            $inv_stmt = $conn->prepare("
+                UPDATE invoices
+                SET payment_status = 'Paid'
+                WHERE order_id = ?
+            ");
+            if ($inv_stmt) {
+                $inv_stmt->bind_param('i', $order_id);
+                $inv_stmt->execute();
+                $inv_stmt->close();
+            }
+        }
         $redirect_params = [];
         if (isset($_GET['status']) && $_GET['status'] !== '') $redirect_params['status'] = $_GET['status'];
         if (isset($_GET['sort']) && $_GET['sort'] !== '') $redirect_params['sort'] = $_GET['sort'];
@@ -68,10 +95,15 @@ $sql = "
 ";
 $params = [];
 $types = '';
+// Exclude cooperative orders from admin/orders list
+$coopCondition = "NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.order_id AND oi.pool_id IS NOT NULL)";
+
 if ($filter_status !== '') {
-    $sql .= " WHERE o.order_status = ?";
+    $sql .= " WHERE o.order_status = ? AND $coopCondition";
     $params[] = $filter_status;
     $types .= 's';
+} else {
+    $sql .= " WHERE $coopCondition";
 }
 
 switch ($sort) {

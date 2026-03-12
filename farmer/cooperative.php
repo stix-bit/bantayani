@@ -7,10 +7,70 @@ $farmer_id = (int) $_SESSION['user_id'];
 $message = '';
 $error = '';
 
-// Optional column (from cooperative_pools_migration.sql) - use if present
+// Optional columns (from cooperative_pools_migration.sql) - use if present
 $has_unit_price = false;
 $cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'unit_price'");
 if ($cols && $cols->num_rows > 0) $has_unit_price = true;
+
+$has_pool_status = false;
+$cols = $conn->query("SHOW COLUMNS FROM cooperative_pools LIKE 'status'");
+if ($cols && $cols->num_rows > 0) $has_pool_status = true;
+
+// Handle cooperative order status update by farmer (for pool member orders)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_order_status'], $_POST['order_id'], $_POST['order_status'])) {
+    $order_id = (int)($_POST['order_id']);
+    $order_status = trim($_POST['order_status']);
+    $valid_status = ['Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled'];
+    if ($order_id > 0 && in_array($order_status, $valid_status, true)) {
+        // ensure farmer is member of at least one pool in the order
+        $validation_stmt = $conn->prepare(
+            "SELECT 1 FROM order_items oi JOIN cooperative_members cm ON oi.pool_id = cm.pool_id WHERE oi.order_id = ? AND cm.farmer_id = ? LIMIT 1"
+        );
+        $validation_stmt->bind_param('ii', $order_id, $farmer_id);
+        $validation_stmt->execute();
+        $validation_stmt->store_result();
+        if ($validation_stmt->num_rows > 0) {
+            // Update order status
+            $stmt = $conn->prepare("UPDATE orders SET order_status = ? WHERE order_id = ?");
+            $stmt->bind_param('si', $order_status, $order_id);
+            $stmt->execute();
+            $stmt->close();
+
+            // If order is confirmed, mark related payments and invoice as paid
+            if ($order_status === 'Confirmed') {
+                $pay_stmt = $conn->prepare("
+                    UPDATE payment
+                    SET payment_status = 'Paid',
+                        payment_date = NOW()
+                    WHERE order_id = ?
+                ");
+                if ($pay_stmt) {
+                    $pay_stmt->bind_param('i', $order_id);
+                    $pay_stmt->execute();
+                    $pay_stmt->close();
+                }
+
+                $inv_stmt = $conn->prepare("
+                    UPDATE invoices
+                    SET payment_status = 'Paid'
+                    WHERE order_id = ?
+                ");
+                if ($inv_stmt) {
+                    $inv_stmt->bind_param('i', $order_id);
+                    $inv_stmt->execute();
+                    $inv_stmt->close();
+                }
+            }
+
+            $message = 'Order status updated successfully.';
+        } else {
+            $error = 'You do not have permission to update this order status.';
+        }
+        $validation_stmt->close();
+    } else {
+        $error = 'Invalid order status selection.';
+    }
+}
 
 // Handle contribute POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contribute'])) {
@@ -96,8 +156,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contribute'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_pool'])) {
     $crop_id = (int) ($_POST['crop_id'] ?? 0);
     if ($crop_id > 0) {
-        $stmt = $conn->prepare("INSERT INTO cooperative_pools (crop_id, total_quantity) VALUES (?, 0)");
-        $stmt->bind_param("i", $crop_id);
+        if ($has_pool_status) {
+            $stmt = $conn->prepare("INSERT INTO cooperative_pools (crop_id, total_quantity, status) VALUES (?, 0, 'Open')");
+            $stmt->bind_param("i", $crop_id);
+        } else {
+            $stmt = $conn->prepare("INSERT INTO cooperative_pools (crop_id, total_quantity) VALUES (?, 0)");
+            $stmt->bind_param("i", $crop_id);
+        }
         $stmt->execute();
         $stmt->close();
         $message = 'New cooperative pool created. You can contribute to it below.';
@@ -108,12 +173,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_pool'])) {
 
 // Load all pools (any farmer can see and contribute to any pool)
 $select_extras = ($has_unit_price ? ", p.unit_price" : "");
-$sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, p.unit $select_extras
+$status_select = $has_pool_status ? ", p.status" : "";
+$sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, p.unit $select_extras $status_select
         FROM cooperative_pools p
         JOIN crops c ON p.crop_id = c.crop_id
         ORDER BY c.crop_name, p.pool_id";
 $pools_result = $conn->query($sql);
 $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
+
+// Pools the farmer is a member of for management section
+$member_pools_sql = "
+    SELECT p.pool_id, p.crop_id, p.total_quantity, c.crop_name, p.unit {$select_extras} {$status_select}
+    FROM cooperative_pools p
+    JOIN crops c ON p.crop_id = c.crop_id
+    JOIN cooperative_members m ON p.pool_id = m.pool_id
+    WHERE m.farmer_id = ?
+    GROUP BY p.pool_id
+    ORDER BY p.created_at DESC
+";
+$member_stmt = $conn->prepare($member_pools_sql);
+$member_stmt->bind_param('i', $farmer_id);
+$member_stmt->execute();
+$member_pools = $member_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$member_stmt->close();
 
 // My contributions per pool
 $my_contrib = [];
@@ -125,6 +207,29 @@ while ($row = $cr->fetch_assoc()) {
     $my_contrib[$row['pool_id']] = (float) $row['quantity_contributed'];
 }
 $stmt->close();
+
+// Cooperative orders where this farmer has contributed via pool items
+// Use cooperative pool unit_price as fallback so totals are not zero
+$coop_orders_sql = "
+    SELECT 
+        o.order_id, 
+        o.order_date, 
+        o.order_status, 
+        SUM(oi.quantity * COALESCE(ci.price, cp.unit_price, 0)) AS total_amount
+    FROM orders o
+    JOIN order_items oi ON o.order_id = oi.order_id
+    JOIN cooperative_members cm ON oi.pool_id = cm.pool_id
+    LEFT JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+    LEFT JOIN cooperative_pools cp ON oi.pool_id = cp.pool_id
+    WHERE cm.farmer_id = ?
+    GROUP BY o.order_id
+    ORDER BY o.order_date DESC
+";
+$coop_orders_stmt = $conn->prepare($coop_orders_sql);
+$coop_orders_stmt->bind_param('i', $farmer_id);
+$coop_orders_stmt->execute();
+$my_coop_orders = $coop_orders_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$coop_orders_stmt->close();
 
 // My inventory (for contribution form) - all my crops
 $stmt = $conn->prepare("
@@ -139,7 +244,22 @@ $stmt->execute();
 $my_inventory = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-$crops = $conn->query("SELECT crop_id, crop_name FROM crops ORDER BY crop_name")->fetch_all(MYSQLI_ASSOC);
+// Load all crop categories (for selection)
+$crop_categories = $conn->query("SELECT category_id, category_name FROM crop_categories ORDER BY display_order, category_name")->fetch_all(MYSQLI_ASSOC);
+
+// Load crops by category (all crops available, deduplicated by crop_id automatically)
+$crops_by_category = [];
+$crops_result = $conn->query("SELECT crop_id, crop_name, category_id FROM crops ORDER BY category_id, crop_name");
+if ($crops_result) {
+    while ($row = $crops_result->fetch_assoc()) {
+        $catId = (int)$row['category_id'];
+        $cropId = (int)$row['crop_id'];
+        if (!isset($crops_by_category[$catId])) {
+            $crops_by_category[$catId] = [];
+        }
+        $crops_by_category[$catId][$cropId] = $row['crop_name'];
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -205,13 +325,20 @@ $crops = $conn->query("SELECT crop_id, crop_name FROM crops ORDER BY crop_name")
         <h2>Create a new pool</h2>
         <form method="post">
             <input type="hidden" name="create_pool" value="1">
-            <label>Crop</label>
-            <select name="crop_id" required>
-                <option value="">Select crop</option>
-                <?php foreach ($crops as $c): ?>
-                    <option value="<?= (int)$c['crop_id'] ?>"><?= htmlspecialchars($c['crop_name']) ?></option>
+            <label>Crop Category</label>
+            <select name="category_id" id="category_id" required>
+                <option value="">Select category</option>
+                <?php foreach ($crop_categories as $cat): ?>
+                    <option value="<?= (int)$cat['category_id'] ?>"><?= htmlspecialchars($cat['category_name']) ?></option>
                 <?php endforeach; ?>
             </select>
+
+            <label>Crop</label>
+            <select name="crop_id" id="crop_id" required>
+                <option value="">Select crop</option>
+                <!-- populated by JS based on selected category -->
+            </select>
+
             <button type="submit" class="btn">Create pool</button>
         </form>
     </div>
@@ -282,8 +409,109 @@ $crops = $conn->query("SELECT crop_id, crop_name FROM crops ORDER BY crop_name")
             </table>
         <?php endif; ?>
     </div>
+
+    <!-- Pool management for member (farmer) -->
+    <div class="card">
+        <h2>My Cooperative Pool Memberships</h2>
+        <?php if (empty($member_pools)): ?>
+            <p style="color: var(--text-light);">You are not a member of any cooperative pool yet.</p>
+        <?php else: ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Pool</th>
+                        <th>Total quantity</th>
+                        <?php if ($has_unit_price): ?><th>Unit price</th><?php endif; ?>
+                        <th>Your contribution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($member_pools as $mp): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($mp['crop_name']) ?></td>
+                            <td><?= number_format((float)($mp['total_quantity'] ?? 0), 2) ?> <?= htmlspecialchars($mp['unit']) ?></td>
+                            <?php if ($has_unit_price): ?>
+                                <td><?= isset($mp['unit_price']) && $mp['unit_price'] != null ? '₱' . number_format((float)$mp['unit_price'], 2) : '—' ?></td>
+                            <?php endif; ?>
+                            <td>
+                                <?php if (isset($my_contrib[$mp['pool_id']]) && $my_contrib[$mp['pool_id']] > 0): ?>
+                                    <span class="badge"><?= number_format($my_contrib[$mp['pool_id']], 2) ?> <?= htmlspecialchars($mp['unit']) ?></span>
+                                <?php else: ?>
+                                    —
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
+
+    <!-- Cooperative orders for member (farmer) -->
+    <div class="card">
+        <h2>My Cooperative Pool Orders</h2>
+        <?php if (empty($my_coop_orders)): ?>
+            <p style="color: var(--text-light);">No cooperative pool orders found.</p>
+        <?php else: ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Update status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($my_coop_orders as $order): ?>
+                        <tr>
+                            <td><?= (int)$order['order_id'] ?></td>
+                            <td><?= htmlspecialchars($order['order_date']) ?></td>
+                            <td><?= htmlspecialchars($order['order_status']) ?></td>
+                            <td>₱<?= number_format((float)$order['total_amount'], 2) ?></td>
+                            <td>
+                                <form method="POST" style=" display:flex; gap:6px; align-items:center;">
+                                    <input type="hidden" name="update_order_status" value="1">
+                                    <input type="hidden" name="order_id" value="<?= (int)$order['order_id'] ?>">
+                                    <select name="order_status" style="font-size:0.9rem;">
+                                        <?php foreach (['Pending','Confirmed','Shipped','Delivered','Cancelled'] as $status): ?>
+                                            <option value="<?= $status ?>" <?= ($order['order_status'] === $status ? 'selected' : '') ?>><?= $status ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <button type="submit" class="btn btn-secondary" style="padding:6px 10px;">Save</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
 </div>
 <script>
+// Populate crop dropdown from selected category using all crops (deduplicated by crop ID)
+var cropsByCategory = <?php echo json_encode($crops_by_category); ?>;
+
+document.getElementById('category_id').addEventListener('change', function() {
+    var categoryId = this.value;
+    var cropSelect = document.getElementById('crop_id');
+    cropSelect.innerHTML = '<option value="">Select crop</option>';
+
+    if (categoryId && cropsByCategory[categoryId]) {
+        Object.keys(cropsByCategory[categoryId]).sort(function(a,b){
+            return cropsByCategory[categoryId][a].localeCompare(cropsByCategory[categoryId][b]);
+        }).forEach(function(cropId) {
+            var option = document.createElement('option');
+            option.value = cropId;
+            option.text = cropsByCategory[categoryId][cropId];
+            cropSelect.appendChild(option);
+        });
+    }
+});
+
+// Existing contribution filters for pool/inventory selection
+
 document.getElementById('pool_id').addEventListener('change', function() {
     var cropId = this.options[this.selectedIndex].dataset.cropId;
     var invSelect = document.getElementById('inventory_id');

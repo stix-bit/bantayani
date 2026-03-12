@@ -43,20 +43,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_crop'])) {
     exit;
 }
 
-// Fetch farmer's crops with category information
+// Pagination setup
+$perPage = 9;
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$offset = ($page - 1) * $perPage;
+
+// Get total crop count for this farmer
+$count_query = "SELECT COUNT(*) as total FROM crops_inventory WHERE farmer_id = ?";
+$count_stmt = $conn->prepare($count_query);
+$count_stmt->bind_param('i', $farmer_id);
+$count_stmt->execute();
+$count_result = $count_stmt->get_result();
+$total_records = 0;
+if ($count_row = $count_result->fetch_assoc()) {
+    $total_records = intval($count_row['total']);
+}
+$count_stmt->close();
+
+$total_pages = max(1, ceil($total_records / $perPage));
+if ($page > $total_pages) {
+    $page = $total_pages;
+    $offset = ($page - 1) * $perPage;
+}
+
+// Fetch farmer's crops with category information (one image per crop)
 $crops_query = "
-    SELECT ci.inventory_id, c.crop_name, ci.quantity, ci.unit, ci.price, ci.harvest_date, 
-           ci.harvest_status, ci_img.image_path, cc.category_name
+    SELECT ci.inventory_id, c.crop_name, ci.quantity, ci.unit, ci.price, ci.harvest_date,
+           ci.harvest_status, cc.category_name,
+           (SELECT image_path FROM crop_images WHERE inventory_id = ci.inventory_id ORDER BY image_id ASC LIMIT 1) AS image_path
     FROM crops_inventory ci
     JOIN crops c ON ci.crop_id = c.crop_id
     JOIN crop_categories cc ON c.category_id = cc.category_id
-    JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
     WHERE ci.farmer_id = ?
     ORDER BY ci.harvest_date DESC, ci.created_at DESC
+    LIMIT ?, ?
 ";
 
 $crops_stmt = $conn->prepare($crops_query);
-$crops_stmt->bind_param('i', $farmer_id);
+$crops_stmt->bind_param('iii', $farmer_id, $offset, $perPage);
 $crops_stmt->execute();
 $crops_result = $crops_stmt->get_result();
 ?>
@@ -292,6 +316,19 @@ $crops_result = $crops_stmt->get_result();
             color: var(--green-dark);
         }
 
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin: 16px 0 32px;
+        }
+
+        .pagination span {
+            font-weight: 600;
+            color: var(--text);
+        }
+
         @media (max-width: 768px) {
             .crops-grid {
                 grid-template-columns: 1fr;
@@ -404,6 +441,21 @@ $crops_result = $crops_stmt->get_result();
                     </div>
                 <?php endwhile; ?>
             </div>
+
+            <?php if ($total_pages > 1): ?>
+                <div class="pagination">
+                    <?php if ($page > 1): ?>
+                        <a class="btn btn-secondary btn-small" href="?page=<?php echo $page - 1; ?>">&laquo; Previous</a>
+                    <?php endif; ?>
+
+                    <span>Page <?php echo $page; ?> of <?php echo $total_pages; ?></span>
+
+                    <?php if ($page < $total_pages): ?>
+                        <a class="btn btn-secondary btn-small" href="?page=<?php echo $page + 1; ?>">Next &raquo;</a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
         <?php else: ?>
             <div class="empty-state">
                 <h3>No crops in inventory</h3>

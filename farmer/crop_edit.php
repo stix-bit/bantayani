@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/dynamic_pricing.php';
 
 // Check if farmer is logged in
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Farmer') {
@@ -48,7 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $selected_category_id = $category_id;
     $selected_crop_id = $crop_id;
     $quantity = floatval($_POST['quantity'] ?? 0);
-    $unit = $_POST['unit'] ?? 'kg';
+    // unit is not editable per request; keep existing value from DB
+    $unit = $crop['unit'];
     $price = floatval($_POST['price'] ?? 0);
     $harvest_date = $_POST['harvest_date'] ?? '';
     $harvest_status = $_POST['harvest_status'] ?? 'Scheduled';
@@ -66,14 +68,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Quantity must be greater than 0.';
     }
     
-    if (!in_array($unit, ['kg', 'g', 'pieces', 'sack', 'bundle'])) {
-        $errors[] = 'Invalid unit selected.';
-    }
+    // unit is not editable here, so no unit validation needed
     
     if ($price < 0) {
         $errors[] = 'Price cannot be negative.';
     }
-    
+
+    // Price benchmarking validation (same as crop_add)
+    if ($crop_id > 0 && $price >= 0) {
+        $priceRange = getDynamicPriceRange($conn, $crop_id);
+        if ($priceRange['has_data'] && ($price < $priceRange['price_min'] || $price > $priceRange['price_max'])) {
+            $errors[] = sprintf(
+                "Price ₱%.2f is outside the allowed range (₱%.2f - ₱%.2f). Please enter a price within the range.",
+                $price, $priceRange['price_min'], $priceRange['price_max']
+            );
+        }
+    }
+
     if ($harvest_date === '') {
         $errors[] = 'Harvest date is required.';
     }
@@ -433,21 +444,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="form-group">
-                        <label for="unit">Unit</label>
-                        <select id="unit" name="unit" required>
-                            <option value="kg" <?php echo ($crop['unit'] === 'kg') ? 'selected' : ''; ?>>Kilograms (kg)</option>
-                            <option value="g" <?php echo ($crop['unit'] === 'g') ? 'selected' : ''; ?>>Grams (g)</option>
-                            <option value="pieces" <?php echo ($crop['unit'] === 'pieces') ? 'selected' : ''; ?>>Pieces</option>
-                            <option value="sack" <?php echo ($crop['unit'] === 'sack') ? 'selected' : ''; ?>>Sack</option>
-                            <option value="bundle" <?php echo ($crop['unit'] === 'bundle') ? 'selected' : ''; ?>>Bundle</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
                         <label for="price">Price per Unit (₱)</label>
                         <input type="number" id="price" name="price" 
                                value="<?php echo htmlspecialchars($crop['price']); ?>" 
                                step="0.01" min="0" required>
+                        <div id="dynamicPriceInfo" class="dynamic-price-box" style="display:none;">
+                            Recommended: ₱<span id="recommendedPrice">0.00</span> | Min: ₱<span id="minPrice">0.00</span> | Max: ₱<span id="maxPrice">0.00</span>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -557,9 +560,40 @@ function loadCropOptions(categoryId, selectedCropId) {
 
 document.getElementById('category_id').addEventListener('change', function() {
     loadCropOptions(this.value, null);
+    updatePricingBox();
 });
+
+document.getElementById('crop_id').addEventListener('change', function() {
+    updatePricingBox();
+});
+
+function updatePricingBox() {
+    const cropId = document.getElementById('crop_id').value;
+    const infoBox = document.getElementById('dynamicPriceInfo');
+    if (!cropId) {
+        infoBox.style.display = 'none';
+        return;
+    }
+
+    fetch('get_dynamic_price.php?crop_id=' + cropId)
+        .then(res => res.json())
+        .then(data => {
+            if (data.has_data) {
+                document.getElementById('recommendedPrice').textContent = parseFloat(data.recommended).toFixed(2);
+                document.getElementById('minPrice').textContent = parseFloat(data.price_min).toFixed(2);
+                document.getElementById('maxPrice').textContent = parseFloat(data.price_max).toFixed(2);
+                infoBox.style.display = 'block';
+            } else {
+                infoBox.style.display = 'none';
+            }
+        })
+        .catch(() => {
+            infoBox.style.display = 'none';
+        });
+}
 
 // init with existing selection
 loadCropOptions(<?= (int)$selected_category_id ?>, <?= (int)$selected_crop_id ?>);
+updatePricingBox();
 </script>
 </html>

@@ -58,6 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+    // Require at least one image for crop add
+    if (!isset($_FILES['crop_images']) || empty($_FILES['crop_images']['name'][0])) {
+        $errors[] = 'Please upload at least one crop image.';
+    }
+
     // Handle image uploads (only keep successful uploads for sticky preview)
     if (isset($_FILES['crop_images']) && !empty($_FILES['crop_images']['name'][0])) {
         $upload_dir = __DIR__ . '/../images/uploads/crops/';
@@ -189,7 +194,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);b
 </div>
 
 <div class="form-group">
-<label for="quantity">Quantity</label>
+<label for="quantity">Quantity (in KG)</label>
 <input type="number" id="quantity" name="quantity" step="0.01" min="0.01" value="<?= htmlspecialchars($old_inputs['quantity']); ?>" required>
 </div>
 
@@ -207,10 +212,10 @@ Recommended: ₱<span id="recommendedPrice">0.00</span> | Min: ₱<span id="minP
 </div>
 
 <div class="form-group">
-<label>Crop Photos (Optional)</label>
+<label>Crop Photos (Required)</label>
 <div class="file-input">
-<input type="file" name="crop_images[]" id="crop_images" accept="image/*" multiple>
-<p>Upload up to 5 photos (JPG, PNG, GIF, WEBP). First image will be primary.</p>
+<input type="file" name="crop_images[]" id="crop_images" accept="image/*" multiple required>
+<p>Upload at least 1 photo (up to 5) in JPG/PNG/GIF/WEBP. First image will be primary.</p>
 <div id="image-preview" class="image-preview-container">
 <?php foreach($sticky_images as $img): ?>
 <div class="image-preview">

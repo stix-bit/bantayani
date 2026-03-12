@@ -65,7 +65,7 @@ $action = $_GET['action'] ?? $_POST['action'] ?? null;
 
 if ($action === 'refresh') {
     // Fetch fresh weather data
-    $result = $weather_service->updateWeather($latitude, $longitude);
+    $result = $weather_service->updateWeather($latitude, $longitude, $region);
     
     // Ensure response always has 'success' field
     if (isset($result['error'])) {
@@ -79,10 +79,11 @@ if ($action === 'refresh') {
     // Get latest stored weather
     $weather = $weather_service->getLatestWeather($latitude, $longitude);
     
-    // Get active alerts
-    $alerts = $conn->query("
-        SELECT * FROM weather_alerts 
+    // Get active alerts for this farmer's region or global alerts (region IS NULL)
+    $alerts_stmt = $conn->prepare("
+        SELECT * FROM weather_alerts
         WHERE created_at > NOW() - INTERVAL 1 DAY
+          AND (region = ? OR region IS NULL)
         ORDER BY 
             CASE severity 
                 WHEN 'High' THEN 1 
@@ -92,6 +93,9 @@ if ($action === 'refresh') {
             created_at DESC
         LIMIT 10
     ");
+    $alerts_stmt->bind_param('s', $region);
+    $alerts_stmt->execute();
+    $alerts = $alerts_stmt->get_result();
     
     echo json_encode([
         'success' => true,
@@ -102,4 +106,5 @@ if ($action === 'refresh') {
         'last_updated' => $weather['created_at'] ?? 'Never'
     ]);
 }
+
 ?>

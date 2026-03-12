@@ -4,6 +4,10 @@ require_login();
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/verification_helper.php';
 
+// Role of the currently logged-in viewer (not the profile owner)
+$viewer_role = $_SESSION['role'] ?? '';
+$viewer_is_farmer = ($viewer_role === 'Farmer');
+
 $profile_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($profile_id <= 0) {
     header('Location: ../search.php');
@@ -485,9 +489,15 @@ if ($role === 'Buyer') {
                             <div class="product-item">
                                 <img src="<?= htmlspecialchars($img_path) ?>" alt="<?= htmlspecialchars($item['crop_name']) ?>" onerror="this.src='../images/default-farm.png';">
                                 <div class="product-meta">
-                                    <a href="../buyer/product.php?id=<?= (int) $item['inventory_id'] ?>">
-                                        <?= htmlspecialchars($item['crop_name']) ?>
-                                    </a>
+                                    <?php if ($viewer_is_farmer): ?>
+                                        <span style="font-weight:600; color: var(--green-dark); cursor: default;">
+                                            <?= htmlspecialchars($item['crop_name']) ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <a href="../buyer/product.php?id=<?= (int) $item['inventory_id'] ?>">
+                                            <?= htmlspecialchars($item['crop_name']) ?>
+                                        </a>
+                                    <?php endif; ?>
                                     <p><?= htmlspecialchars($item['quantity']) ?> <?= htmlspecialchars($item['unit']) ?> @ ₱<?= number_format((float) $item['price'], 2) ?></p>
                                 </div>
                             </div>
@@ -512,10 +522,27 @@ if ($role === 'Buyer') {
                 <?php if (!empty($verification_docs)): ?>
                     <ul class="cert-list">
                         <?php foreach ($verification_docs as $doc): ?>
+                            <?php
+                                $cert_path = $doc['certificate_path'] ?? '';
+                                // Build a public path that works from this script location
+                                $cert_public = !empty($cert_path) ? '../' . ltrim($cert_path, '/') : '';
+                            ?>
                             <li>
-                                <?= htmlspecialchars($doc['certificate_name']) ?>
-                                (<?= htmlspecialchars($doc['certificate_type']) ?>,
-                                <?= htmlspecialchars($doc['status']) ?>)
+                                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                    <?php if (!empty($cert_public)): ?>
+                                        <a href="<?= htmlspecialchars($cert_public) ?>" target="_blank" style="display:inline-block;">
+                                            <img src="<?= htmlspecialchars($cert_public) ?>"
+                                                 alt="<?= htmlspecialchars($doc['certificate_name']) ?>"
+                                                 style="width:60px; height:60px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb;"
+                                                 onerror="this.style.display='none';">
+                                        </a>
+                                    <?php endif; ?>
+                                    <span>
+                                        <?= htmlspecialchars($doc['certificate_name']) ?>
+                                        (<?= htmlspecialchars($doc['certificate_type']) ?>,
+                                        <?= htmlspecialchars($doc['status']) ?>)
+                                    </span>
+                                </div>
                             </li>
                         <?php endforeach; ?>
                     </ul>

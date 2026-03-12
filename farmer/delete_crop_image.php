@@ -8,8 +8,19 @@ $farmer_id = $_SESSION['user_id'];
 $response = ['success' => false, 'message' => ''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $image_id = (int)($_POST['image_id'] ?? 0);
-    
+    $image_id = 0;
+
+    // Support JSON body from JS fetch and form data submits
+    if (isset($_POST['image_id'])) {
+        $image_id = (int)$_POST['image_id'];
+    } else {
+        $rawBody = file_get_contents('php://input');
+        $jsonBody = json_decode($rawBody, true);
+        if (json_last_error() === JSON_ERROR_NONE && isset($jsonBody['image_id'])) {
+            $image_id = (int)$jsonBody['image_id'];
+        }
+    }
+
     if ($image_id <= 0) {
         $response['message'] = 'Invalid image ID';
         echo json_encode($response);

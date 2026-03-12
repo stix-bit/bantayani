@@ -213,25 +213,38 @@ class WeatherService {
     }
     
     /**
+     * Check weather_alerts schema and add region field if missing
+     */
+    private function ensureWeatherAlertRegionColumn() {
+        $result = $this->conn->query("SHOW COLUMNS FROM weather_alerts LIKE 'region'");
+        if ($result && $result->num_rows === 0) {
+            $this->conn->query("ALTER TABLE weather_alerts ADD COLUMN region VARCHAR(100) NULL AFTER severity");
+        }
+    }
+
+    /**
      * Clear old alerts and store new ones
      * @param array $alerts
+     * @param string|null $region
      * @return bool
      */
-    public function storeAlerts($alerts) {
+    public function storeAlerts($alerts, $region = null) {
+        $this->ensureWeatherAlertRegionColumn();
+
         // Clear old alerts (older than 1 day)
         $this->conn->query("DELETE FROM weather_alerts WHERE created_at < NOW() - INTERVAL 1 DAY");
         
         // Insert new alerts
         $stmt = $this->conn->prepare("
-            INSERT INTO weather_alerts (title, message, severity)
-            VALUES (?, ?, ?)
+            INSERT INTO weather_alerts (title, message, severity, region)
+            VALUES (?, ?, ?, ?)
         ");
         
         foreach ($alerts as $alert) {
             $title = $alert['title'];
             $message = $alert['message'];
             $severity = $alert['severity'];
-            $stmt->bind_param('sss', $title, $message, $severity);
+            $stmt->bind_param('ssss', $title, $message, $severity, $region);
             $stmt->execute();
         }
         
@@ -244,7 +257,7 @@ class WeatherService {
      * @param float $longitude
      * @return array Updated weather data
      */
-    public function updateWeather($latitude, $longitude) {
+    public function updateWeather($latitude, $longitude, $region = null) {
         $weather_data = $this->getWeatherData($latitude, $longitude);
         
         if (isset($weather_data['error'])) {
@@ -257,7 +270,7 @@ class WeatherService {
         // Generate and store alerts
         $alerts = $this->generateAlerts($weather_data);
         if (!empty($alerts)) {
-            $this->storeAlerts($alerts);
+            $this->storeAlerts($alerts, $region);
         }
         
         return [

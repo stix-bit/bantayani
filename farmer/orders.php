@@ -41,14 +41,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_order_status']
     $order_id = (int)($_POST['order_id'] ?? 0);
     $order_status = $_POST['order_status'] ?? '';
 
-    // Verify this order contains items from this farmer
+    // Verify this order contains items from this farmer (inventory or cooperative pool)
     $verify_stmt = $conn->prepare(
         "SELECT o.order_id FROM orders o
          JOIN order_items oi ON o.order_id = oi.order_id
-         JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
-         WHERE o.order_id = ? AND ci.farmer_id = ? LIMIT 1"
+         LEFT JOIN crops_inventory ci ON oi.inventory_id = ci.inventory_id
+         LEFT JOIN cooperative_members cm ON oi.pool_id = cm.pool_id
+         WHERE o.order_id = ? AND (ci.farmer_id = ? OR cm.farmer_id = ?) LIMIT 1"
     );
-    $verify_stmt->bind_param("ii", $order_id, $farmer_id);
+    $verify_stmt->bind_param("iii", $order_id, $farmer_id, $farmer_id);
     $verify_stmt->execute();
     $verify_result = $verify_stmt->get_result();
 
@@ -60,31 +61,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_order_status']
     $update_stmt->execute();
     $update_stmt->close();
 
-    // If status changed to Confirmed, mark Cash payments as Paid
+    // If status changed to Confirmed, mark related payments and invoice as Paid
     if ($order_status === 'Confirmed') {
 
-    // Update Cash payments to Paid
-    $payment_stmt = $conn->prepare("
-        UPDATE payment
-        SET payment_status = 'Paid',
-            payment_date = NOW()
-        WHERE order_id = ?
-        AND payment_method = 'Cash'
-    ");
-    $payment_stmt->bind_param("i", $order_id);
-    $payment_stmt->execute();
-    $payment_stmt->close();
+        // Update all payments for this order to Paid
+        $payment_stmt = $conn->prepare("
+            UPDATE payment
+            SET payment_status = 'Paid',
+                payment_date = NOW()
+            WHERE order_id = ?
+        ");
+        if ($payment_stmt) {
+            $payment_stmt->bind_param("i", $order_id);
+            $payment_stmt->execute();
+            $payment_stmt->close();
+        }
 
-    // ALSO update related invoice
-    $invoice_stmt = $conn->prepare("
-        UPDATE invoices
-        SET payment_status = 'Paid'
-        WHERE invoice_id = ?
-    ");
-    $invoice_stmt->bind_param("i", $order_id);
-    $invoice_stmt->execute();
-    $invoice_stmt->close();
-}
+        // Update related invoice (matched by order_id)
+        $invoice_stmt = $conn->prepare("
+            UPDATE invoices
+            SET payment_status = 'Paid'
+            WHERE order_id = ?
+        ");
+        if ($invoice_stmt) {
+            $invoice_stmt->bind_param("i", $order_id);
+            $invoice_stmt->execute();
+            $invoice_stmt->close();
+        }
+    }
 
     $_SESSION['message'] = 'Order status updated successfully!';
 }

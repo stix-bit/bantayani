@@ -144,6 +144,11 @@ if (!empty($current_weather) && empty($_SESSION['weather_alerts_cleared'])) {
             ];
         }
     }
+
+    // Persist weather alerts to database for farmer region
+    if (!empty($weather_alerts)) {
+        $weather_service->storeAlerts($weather_alerts, $region);
+    }
 }
 
 
@@ -396,37 +401,12 @@ if (!empty($due_harvests)) {
         .crop-image-item.primary img {
             border: 2px solid #f28705;
         }
-        .image-actions {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            display: flex;
-            gap: 2px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 4px;
-            padding: 2px;
+        /* Removed image action controls and add image UI for inventory table */
+        .crop-image-item {
+            position: relative;
         }
-        .image-actions .icon-btn {
-            font-size: 0.8rem;
-            padding: 2px;
-        }
-        .add-image-btn {
-            width: 50px;
-            height: 50px;
-            border: 2px dashed #ccc;
-            border-radius: 4px;
-            background: #f9fafb;
-            color: #666;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-        .add-image-btn:hover {
-            border-color: #1f8a70;
-            color: #1f8a70;
-            background: #f0fdf4;
+        .crop-image-item.primary img {
+            border: 2px solid #f28705;
         }
 
         /* Tabs */
@@ -680,10 +660,21 @@ if (!empty($due_harvests)) {
                                         <td><?= htmlspecialchars($h['quantity'].' '.$h['unit']) ?></td>
                                         <td><?= htmlspecialchars($h['harvest_date'] && $h['harvest_date'] !== '0000-00-00' ? (new DateTime($h['harvest_date']))->format('Y-m-d') : 'Not set') ?></td>
                                         <td>
-                                            <form method="POST" style="display:inline; margin-right: 8px;">
-                                                <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
-                                                <button type="submit" name="harvest_action" value="confirm" class="confirm-btn" style="background: #3b82f6; color: white;">Confirm</button>
-                                            </form>
+                                            <?php
+                                                $can_confirm = false;
+                                                if (!empty($h['harvest_date']) && $h['harvest_date'] !== '0000-00-00') {
+                                                    $can_confirm = strtotime($h['harvest_date']) <= strtotime('today');
+                                                }
+                                            ?>
+                                            <?php if ($can_confirm): ?>
+                                                <form method="POST" style="display:inline; margin-right: 8px;">
+                                                    <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
+                                                    <button type="submit" name="harvest_action" value="confirm" class="confirm-btn" style="background: #3b82f6; color: white;">Confirm</button>
+                                                </form>
+                                            <?php else: ?>
+                                                <button class="confirm-btn" style="background: #94a3b8; color: white; cursor: default;" disabled>Confirm (Pending)</button>
+                                            <?php endif; ?>
+
                                             <form method="POST" style="display:inline;">
                                                 <input type="hidden" name="inventory_id" value="<?= (int)$h['inventory_id'] ?>">
                                                 <button type="submit" name="harvest_action" value="cancel" class="confirm-btn danger">Cancel</button>
@@ -920,27 +911,19 @@ if (!empty($due_harvests)) {
                                             $image_ids = $item['image_ids'] ? explode(',', $item['image_ids']) : [];
                                             foreach ($images as $index => $image_path): 
                                                 if (!empty($image_path)):
-                                                    $image_id = $image_ids[$index] ?? 0;
-                                                    $is_primary = $index === 0;
+                                                    $image_id = isset($image_ids[$index]) ? (int)$image_ids[$index] : 0;
                                             ?>
-                                                <div class="crop-image-item <?= $is_primary ? 'primary' : '' ?>">
+                                                <div class="crop-image-item">
                                                     <img src="../<?= htmlspecialchars($image_path) ?>" alt="Crop image" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
-                                                    <div class="image-actions">
-                                                        <button type="button" class="icon-btn" onclick="setPrimaryImage(<?= $image_id ?>, <?= $item['inventory_id'] ?>)" title="Set as primary">
-                                                            <i class="fa-solid fa-star" style="color: <?= $is_primary ? '#f28705' : '#ccc' ?>;"></i>
-                                                        </button>
-                                                        <button type="button" class="icon-btn delete-btn" onclick="deleteCropImage(<?= $image_id ?>, <?= $item['inventory_id'] ?>)" title="Delete image">
-                                                            <i class="fa-solid fa-trash"></i>
-                                                        </button>
-                                                    </div>
+                                                    <button type="button" class="icon-btn delete-btn" onclick="deleteCropImage(<?= $image_id ?>, <?= $item['inventory_id'] ?>)" title="Delete image">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
                                                 </div>
                                             <?php 
                                                 endif;
                                             endforeach; 
                                             ?>
-                                            <button type="button" class="add-image-btn" onclick="openImageModal(<?= $item['inventory_id'] ?>)" title="Add image">
-                                                <i class="fa-solid fa-plus"></i>
-                                            </button>
+                                            <!-- add image and set primary removed as requested -->
                                         </div>
                                     </td>
                                     <td><?= htmlspecialchars($item['quantity'].' '.$item['unit']) ?></td>
@@ -1018,37 +1001,7 @@ function deleteCropImage(imageId, inventoryId) {
     });
 }
 
-// Set primary image function  
-function setPrimaryImage(imageId, inventoryId) {
-    fetch('set_primary_image.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            image_id: imageId,
-            inventory_id: inventoryId
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Error: ' + (data.error || 'Failed to set primary image'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Failed to set primary image: ' + error.message);
-    });
-}
-
-// Open image modal function
-function openImageModal(inventoryId) {
-    // Implementation for image upload modal
-    console.log('Open image modal for inventory:', inventoryId);
-}
+// setPrimaryImage and openImageModal removed per UI cleanup (legacy image controls removed).
 </script>
 
 <!-- Tab and Pagination JavaScript -->
