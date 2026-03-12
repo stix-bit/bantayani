@@ -212,10 +212,6 @@ if ($stmt) $stmt->close();
                 <h1>Orders</h1>
                 <p>View and manage all orders</p>
             </div>
-            <div class="user-info">
-                <a href="profile.php" title="Profile">Profile</a>
-                <a href="/bantayani/user/logout.php" class="logout-btn" style="text-decoration:none;">Log Out</a>
-            </div>
         </div>
 
         <div class="content">
