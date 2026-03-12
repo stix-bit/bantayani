@@ -89,6 +89,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_order_status']
             $invoice_stmt->close();
         }
     }
+    else {
+        // Update all payments for this order to Unpaid
+        $payment_stmt = $conn->prepare("
+            UPDATE payment
+            SET payment_status = 'Pending',
+                payment_date = NULL,
+                payment_method = NULL
+            WHERE order_id = ?
+        ");
+        if ($payment_stmt) {
+            $payment_stmt->bind_param("i", $order_id);
+            $payment_stmt->execute();
+            $payment_stmt->close();
+        }
+    }
+
 
     $_SESSION['message'] = 'Order status updated successfully!';
 }

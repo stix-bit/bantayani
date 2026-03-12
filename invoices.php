@@ -576,9 +576,13 @@ if (isset($_GET['logout'])) {
                                 </td>
                                 <td><strong>₱<?= number_format($invoice['total_amount'], 2) ?></strong></td>
                                 <td>
+                                    <?php if ($invoice['order_status'] === 'Cancelled'): ?>
+                                        <span class="status-badge status-cancelled">Cancelled</span>
+                                    <?php else: ?>
                                     <span class="status-badge status-<?= strtolower(str_replace(' ', '', $invoice['computed_status'])) ?>">
-                                    <?= $invoice['computed_status'] ?>
-                                    </span>
+                                        <?= $invoice['computed_status'] ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </td>
                                 <td><?= htmlspecialchars($invoice['order_status'] ?? '-') ?></td>
                                 <td>
@@ -586,9 +590,9 @@ if (isset($_GET['logout'])) {
                                         <?= date('M d, Y', strtotime($invoice['due_date'])) ?>
                                         <?php if (strtotime($invoice['due_date']) < time() && $invoice['payment_status'] !== 'Paid'): ?>
                                             <br><small style="color: #dc2626;">⚠️ Overdue</small>
+                                        <?php elseif ($invoice['order_status'] === 'Cancelled'): ?>
+                                            <br><small style="color: #dc2626;">⚠️ Cancelled</small>
                                         <?php endif; ?>
-                                    <?php else: ?>
-                                        -
                                     <?php endif; ?>
                                 </td>
                                 <td>
