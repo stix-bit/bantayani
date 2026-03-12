@@ -49,8 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $selected_category_id = $category_id;
     $selected_crop_id = $crop_id;
     $quantity = floatval($_POST['quantity'] ?? 0);
-    // unit is not editable per request; keep existing value from DB
-    $unit = $crop['unit'];
+    // unit is not editable per request; keep existing value from DB,
+    // and default to "kg" if missing so it is not cleared on update
+    $unit = trim($crop['unit'] ?? '');
+    if ($unit === '') {
+        $unit = 'kg';
+    }
     $price = floatval($_POST['price'] ?? 0);
     $harvest_date = $_POST['harvest_date'] ?? '';
     $harvest_status = $_POST['harvest_status'] ?? 'Scheduled';
@@ -131,8 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     harvest_status = ?
                 WHERE inventory_id = ? AND farmer_id = ?
             ");
+            // Correct parameter types: int, double, string, double, string, string, int, int
             $update_inventory_stmt->bind_param(
-                'isdsssii', 
+                'idsdssii', 
                 $new_crop_id, 
                 $quantity, 
                 $unit, 
@@ -437,7 +442,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="form-group">
-                        <label for="quantity">Quantity</label>
+                        <label for="quantity">Quantity (in <?php echo htmlspecialchars($crop['unit']); ?>)</label>
                         <input type="number" id="quantity" name="quantity" 
                                value="<?php echo htmlspecialchars($crop['quantity']); ?>" 
                                step="0.01" min="0.01" required>
@@ -459,14 +464,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                value="<?php echo htmlspecialchars(!empty($crop['harvest_date']) && $crop['harvest_date'] !== '0000-00-00' ? date('Y-m-d', strtotime($crop['harvest_date'])) : ''); ?>" required>
                     </div>
 
-                    <div class="form-group">
-                        <label for="harvest_status">Harvest Status</label>
-                        <select id="harvest_status" name="harvest_status" required>
-                            <option value="Scheduled" <?php echo ($crop['harvest_status'] === 'Scheduled') ? 'selected' : ''; ?>>Scheduled</option>
-                            <option value="Confirmed" <?php echo ($crop['harvest_status'] === 'Confirmed') ? 'selected' : ''; ?>>Confirmed</option>
-                            <option value="Cancelled" <?php echo ($crop['harvest_status'] === 'Cancelled') ? 'selected' : ''; ?>>Cancelled</option>
-                        </select>
-                    </div>
+                    <!-- Harvest status is managed from inventory; removed from edit form per request -->
                 </div>
 
                 <div class="form-group">
