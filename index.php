@@ -866,7 +866,7 @@ if (!isset($_SESSION['user_id'])) {
                 <div class="section-card">
                     <div class="section-header">
                         <h3 class="section-title">Recent Orders</h3>
-                        <a href="orders.php" class="view-all">View All →</a>
+                        <a href="buyer/orders.php" class="view-all">View All →</a>
                     </div>
                     
                     <?php if (!empty($recent_orders)): ?>
