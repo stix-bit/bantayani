@@ -2,6 +2,14 @@
 <!-- Include this in your dashboard (index.php) to show latest announcements -->
 
 <?php
+// Map user role to announcement target audience values used in DB
+$audience = $user_role;
+if ($user_role === 'Farmer') {
+    $audience = 'Farmers';
+} elseif ($user_role === 'Buyer') {
+    $audience = 'Buyers';
+}
+
 // Fetch latest unread announcements for current user
 $announcement_widget_query = "
     SELECT a.announcement_id, a.title, a.announcement_type, a.priority, a.created_at
@@ -23,7 +31,7 @@ $announcement_widget_query = "
 ";
 
 $stmt = $conn->prepare($announcement_widget_query);
-$stmt->bind_param("is", $user_id, $user_role);
+$stmt->bind_param("is", $user_id, $audience);
 $stmt->execute();
 $widget_announcements = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();

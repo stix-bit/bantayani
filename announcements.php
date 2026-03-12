@@ -39,7 +39,15 @@ if (isset($_GET['view']) && is_numeric($_GET['view'])) {
     $conn->query("UPDATE announcements SET views_count = views_count + 1 WHERE announcement_id = $announcement_id");
 }
 
-// Fetch active announcements for this user's role
+// Map user role to announcement target audience values used in DB
+$audience = $user_role;
+if ($user_role === 'Farmer') {
+    $audience = 'Farmers';
+} elseif ($user_role === 'Buyer') {
+    $audience = 'Buyers';
+}
+
+// Fetch active announcements for this user's audience
 $query = "
     SELECT a.*, 
            CONCAT(u.first_name, ' ', u.last_name) as creator_name,
@@ -60,7 +68,7 @@ $query = "
 ";
 
 $stmt = $conn->prepare($query);
-$stmt->bind_param("is", $user_id, $user_role);
+$stmt->bind_param("is", $user_id, $audience);
 $stmt->execute();
 $announcements = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();

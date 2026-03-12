@@ -254,11 +254,11 @@ $coop_orders = $coop_orders_result ? $coop_orders_result->fetch_all(MYSQLI_ASSOC
                                         </select>
                                         <button type="submit" class="confirm-btn">Update</button>
                                     </form>
-                                    <form method="POST" style="display:inline;">
+                                    <!-- <form method="POST" style="display:inline;">
                                         <input type="hidden" name="delete_order" value="1">
                                         <input type="hidden" name="order_id" value="<?= (int)$order['order_id'] ?>">
                                         <button type="submit" class="confirm-btn danger" onclick="return confirm('Delete this cooperative order? This cannot be undone.')">Delete</button>
-                                    </form>
+                                    </form> -->
                                 </td>
                             </tr>
                         <?php endforeach; ?>

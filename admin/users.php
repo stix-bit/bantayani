@@ -34,12 +34,13 @@ if (isset($_POST['action'], $_POST['user_id'])) {
         $stmt->execute();
     }
 
+    // After an action, keep whatever filters/sort were active in the URL,
+    // but do NOT use POST values (which include edited role) to change filters.
     $redirect_params = [];
-    $src = $_SERVER['REQUEST_METHOD'] === 'POST' ? $_POST : $_GET;
-    if (!empty($src['role'])) $redirect_params['role'] = $src['role'];
-    if (isset($src['verified']) && $src['verified'] !== '') $redirect_params['verified'] = $src['verified'];
-    if (!empty($src['sort'])) $redirect_params['sort'] = $src['sort'];
-    if (!empty($src['search'])) $redirect_params['search'] = $src['search'];
+    if (!empty($_GET['role'])) $redirect_params['role'] = $_GET['role'];
+    if (isset($_GET['verified']) && $_GET['verified'] !== '') $redirect_params['verified'] = $_GET['verified'];
+    if (!empty($_GET['sort'])) $redirect_params['sort'] = $_GET['sort'];
+    if (!empty($_GET['search'])) $redirect_params['search'] = $_GET['search'];
     header("Location: users.php" . (empty($redirect_params) ? '' : '?' . http_build_query($redirect_params)));
     exit;
 }
