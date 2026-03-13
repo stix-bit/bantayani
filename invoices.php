@@ -21,7 +21,7 @@ $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
 
-// Fetch invoices based on user role
+// Fetch invoices based on user role and separate cooperative vs direct orders
 if ($user_role === 'Buyer') {
     // Buyer sees invoices they need to pay
     $query = "
@@ -29,7 +29,12 @@ if ($user_role === 'Buyer') {
        p.payment_status,
        CONCAT(u.first_name, ' ', u.last_name) as farmer_name,
        fp.farm_name,
-       o.order_status
+       o.order_status,
+       CASE 
+           WHEN EXISTS(SELECT 1 FROM order_items oi WHERE oi.order_id = i.order_id AND oi.pool_id IS NOT NULL) 
+           THEN 'Cooperative Pooling'
+           ELSE 'Direct Order'
+       END as order_type
 FROM invoices i
 LEFT JOIN payment p ON i.order_id = p.order_id
 LEFT JOIN users u ON i.farmer_id = u.user_id
@@ -45,7 +50,12 @@ ORDER BY i.created_at DESC
        p.payment_status,
        CONCAT(u.first_name, ' ', u.last_name) as buyer_name,
        c.company_name,
-       o.order_status
+       o.order_status,
+       CASE 
+           WHEN EXISTS(SELECT 1 FROM order_items oi WHERE oi.order_id = i.order_id AND oi.pool_id IS NOT NULL) 
+           THEN 'Cooperative Pooling'
+           ELSE 'Direct Order'
+       END as order_type
         FROM invoices i
         LEFT JOIN payment p ON i.order_id = p.order_id
         LEFT JOIN users u ON i.buyer_id = u.user_id
@@ -76,11 +86,11 @@ $stats = [
     'total_amount' => 0
 ];
 
-foreach ($invoices as &$invoice) {
+// Separate invoices by order type and compute status
+$cooperative_invoices = [];
+$direct_invoices = [];
 
-    $stats['total_invoices']++;
-    $stats['total_amount'] += $invoice['total_amount'];
-
+foreach ($invoices as $invoice) {
     // Determine real-time status
     $payment_status = $invoice['payment_status'] ?? 'Unpaid';
 
@@ -94,6 +104,16 @@ foreach ($invoices as &$invoice) {
     }
 
     $invoice['computed_status'] = $payment_status;
+
+    // Separate by order type
+    if ($invoice['order_type'] === 'Cooperative Pooling') {
+        $cooperative_invoices[] = $invoice;
+    } else {
+        $direct_invoices[] = $invoice;
+    }
+
+    $stats['total_invoices']++;
+    $stats['total_amount'] += $invoice['total_amount'];
 
     switch ($payment_status) {
         case 'Paid':
@@ -534,17 +554,18 @@ if (isset($_GET['logout'])) {
             </div>
         </div>
 
-        <!-- Invoices Table -->
+        <!-- Cooperative Pooling Invoices -->
         <div class="invoices-section">
             <div class="section-header">
-                <h2 class="section-title">All Invoices</h2>
+                <h2 class="section-title">🤝 Cooperative Pooling Invoices</h2>
+                <span style="color: var(--text-light); font-size: 0.9rem;"><?= count($cooperative_invoices) ?> invoices</span>
             </div>
 
-            <?php if (empty($invoices)): ?>
+            <?php if (empty($cooperative_invoices)): ?>
                 <div class="empty-state">
-                    <div class="empty-state-icon">📭</div>
-                    <h2>No Invoices Yet</h2>
-                    <p>Invoices will appear here once orders are confirmed.</p>
+                    <div class="empty-state-icon">🤝</div>
+                    <h2>No Cooperative Pooling Invoices</h2>
+                    <p>Cooperative pooling invoices will appear here once orders are confirmed.</p>
                 </div>
             <?php else: ?>
                 <table class="invoices-table">
@@ -561,7 +582,86 @@ if (isset($_GET['logout'])) {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($invoices as $invoice): ?>
+                        <?php foreach ($cooperative_invoices as $invoice): ?>
+                            <tr>
+                                <td><strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong></td>
+                                <td><?= date('M d, Y', strtotime($invoice['created_at'])) ?></td>
+                                <td>
+                                    <?php if ($user_role === 'Buyer'): ?>
+                                        <?= htmlspecialchars($invoice['farmer_name']) ?><br>
+                                        <small style="color: var(--text-light);"><?= htmlspecialchars($invoice['farm_name'] ?? '') ?></small>
+                                    <?php else: ?>
+                                        <?= htmlspecialchars($invoice['buyer_name']) ?><br>
+                                        <small style="color: var(--text-light);"><?= htmlspecialchars($invoice['company_name'] ?? '') ?></small>
+                                    <?php endif; ?>
+                                </td>
+                                <td><strong>₱<?= number_format($invoice['total_amount'], 2) ?></strong></td>
+                                <td>
+                                    <?php if ($invoice['order_status'] === 'Cancelled'): ?>
+                                        <span class="status-badge status-cancelled">Cancelled</span>
+                                    <?php else: ?>
+                                    <span class="status-badge status-<?= strtolower(str_replace(' ', '', $invoice['computed_status'])) ?>">
+                                        <?= $invoice['computed_status'] ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= htmlspecialchars($invoice['order_status'] ?? '-') ?></td>
+                                <td>
+                                    <?php if ($invoice['due_date']): ?>
+                                        <?= date('M d, Y', strtotime($invoice['due_date'])) ?>
+                                        <?php if (strtotime($invoice['due_date']) < time() && $invoice['payment_status'] !== 'Paid'): ?>
+                                            <br><small style="color: #dc2626;">⚠️ Overdue</small>
+                                        <?php elseif ($invoice['order_status'] === 'Cancelled'): ?>
+                                            <br><small style="color: #dc2626;">⚠️ Cancelled</small>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <a href="invoice_view.php?id=<?= $invoice['invoice_id'] ?>" class="btn btn-primary">
+                                        View
+                                    </a>
+                                    <?php if ($invoice['computed_status'] === 'Paid'): ?>
+                                        <a href="receipt_view.php?invoice=<?= $invoice['invoice_id'] ?>" class="btn btn-secondary">
+                                            Receipt
+                                        </a>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+
+        <!-- Direct Order Invoices -->
+        <div class="invoices-section" style="margin-top: 32px;">
+            <div class="section-header">
+                <h2 class="section-title">🛒 Direct Order Invoices</h2>
+                <span style="color: var(--text-light); font-size: 0.9rem;"><?= count($direct_invoices) ?> invoices</span>
+            </div>
+
+            <?php if (empty($direct_invoices)): ?>
+                <div class="empty-state">
+                    <div class="empty-state-icon">�</div>
+                    <h2>No Direct Order Invoices</h2>
+                    <p>Direct order invoices will appear here once orders are confirmed.</p>
+                </div>
+            <?php else: ?>
+                <table class="invoices-table">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Date</th>
+                            <th><?= $user_role === 'Buyer' ? 'Farmer' : 'Buyer' ?></th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Order Status</th>
+                            <th>Due Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($direct_invoices as $invoice): ?>
                             <tr>
                                 <td><strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong></td>
                                 <td><?= date('M d, Y', strtotime($invoice['created_at'])) ?></td>

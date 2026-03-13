@@ -162,7 +162,7 @@ $stmt->close();
             if (empty($_SESSION['cart'])): ?>
                 <div class="cart-empty-msg">
                     Your cart is empty.<br>
-                    <a href="marketplace.php">Browse Marketplace</a> or try <a href="marketplace.php">Cooperative Pools</a> for bulk orders.
+                    <a href="marketplace.php">Browse Marketplace</a> or try <a href="product_pool.php">Cooperative Pools</a> for bulk orders.
                 </div>
             <?php else:
                 foreach ($_SESSION['cart'] as $id => $qty) {

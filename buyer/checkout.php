@@ -35,8 +35,24 @@ if ($order_confirmed) {
     $conn->begin_transaction();
     $ok = true;
 
-    $stmtOrder = $conn->prepare("INSERT INTO orders (buyer_id) VALUES (?)");
-    $stmtOrder->bind_param("i", $buyer_id);
+    // Check if order contains cooperative pooling items
+    $has_cooperative_items = false;
+    foreach ($cart as $key => $qty) {
+        $qty = (float)$qty;
+        if ($qty <= 0) continue;
+        
+        // Cooperative pool item (key = p_POOL_ID)
+        if (is_string($key) && strpos($key, 'p_') === 0) {
+            $has_cooperative_items = true;
+            break;
+        }
+    }
+
+    // Set order status based on order type
+    $order_status = $has_cooperative_items ? 'Pending' : 'Confirmed';
+    
+    $stmtOrder = $conn->prepare("INSERT INTO orders (buyer_id, order_status) VALUES (?, ?)");
+    $stmtOrder->bind_param("is", $buyer_id, $order_status);
     $stmtOrder->execute();
     $order_id = $conn->insert_id;
     $stmtOrder->close();
