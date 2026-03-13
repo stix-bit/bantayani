@@ -49,6 +49,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $inv_stmt->close();
                 }
             }
+            else
+                {
+                    // If order is changed from Confirmed to something else, mark payments as pending
+                    $pay_stmt = $conn->prepare("
+                        UPDATE payment
+                        SET payment_status = 'Pending'
+                        WHERE order_id = ?
+                    ");
+                    if ($pay_stmt) {
+                        $pay_stmt->bind_param('i', $order_id);
+                        $pay_stmt->execute();
+                        $pay_stmt->close();
+                    }
+                }
         }
         header('Location: cooperative.php');
         exit;

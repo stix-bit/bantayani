@@ -21,6 +21,7 @@ $profile_img_path = $_SERVER['DOCUMENT_ROOT'] . '/' . $profile_img;
 // Fetch data
 // For top crops sold
 $crops_result = $crops_result ?? [];
+$crops_adm_result = $crops_adm_result ?? [];
 $farmers_result = $farmers_result ?? [];
 $months = $months ?? [];
 $income_data = $income_data ?? [];
@@ -28,16 +29,23 @@ $top_crops = [];
 // For Farmer: fetch crops sold with total quantity and income
 if ($user_role === 'Farmer') {
     $stmt = $conn->prepare("
-        SELECT c.crop_name,
-               IFNULL(SUM(oi.quantity),0) AS total_quantity,
-               IFNULL(SUM(oi.quantity * ci.price),0) AS total_income
-        FROM crops c
-        LEFT JOIN crops_inventory ci ON c.crop_id = ci.crop_id AND ci.farmer_id = ?
-        LEFT JOIN order_items oi ON ci.inventory_id = oi.inventory_id
-        LEFT JOIN orders o ON oi.order_id = o.order_id AND o.order_status IN ('Delivered','Confirmed')
-        GROUP BY c.crop_id
-        ORDER BY total_quantity DESC
-    ");
+    SELECT c.crop_name,
+           IFNULL(SUM(CASE 
+               WHEN o.order_status IN ('Delivered','Confirmed') 
+               THEN oi.quantity ELSE 0 END),0) AS total_quantity,
+           IFNULL(SUM(CASE 
+               WHEN o.order_status IN ('Delivered','Confirmed') 
+               THEN oi.quantity * ci.price ELSE 0 END),0) AS total_income
+    FROM crops c
+    LEFT JOIN crops_inventory ci 
+        ON c.crop_id = ci.crop_id AND ci.farmer_id = ?
+    LEFT JOIN order_items oi 
+        ON ci.inventory_id = oi.inventory_id
+    LEFT JOIN orders o 
+        ON oi.order_id = o.order_id
+    GROUP BY c.crop_id
+    ORDER BY total_quantity DESC
+");
     $stmt->bind_param('i', $user_id);
     $stmt->execute();
     $crops_result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -72,12 +80,12 @@ if ($user_role === 'Farmer') {
         LEFT JOIN order_items oi ON ci.inventory_id = oi.inventory_id
         LEFT JOIN orders o 
             ON oi.order_id = o.order_id 
-            AND o.order_status IN ('Delivered','Confirmed')
+        WHERE o.order_status IN ('Delivered','Confirmed')
         GROUP BY c.crop_id
         ORDER BY total_quantity DESC
     ");
     $stmt->execute();
-    $crops_result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $crops_adm_result = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 }
 
@@ -798,15 +806,17 @@ $stmt->close();
             </div>
             <div class="stat-card">
                 <div class="stat-icon admin">🌾</div>
-                <div class="stat-value"><?= count($crops_result) ?></div>
+                <div class="stat-value"><?= count($crops_adm_result) ?></div>
                 <div class="stat-label">Crops Sold</div>
             </div>
         <?php else: ?>
             <div class="stat-card">
                 <div class="stat-icon farmer">🌾</div>
                 <div class="stat-label">Crops Sold</div>
-                <div class="stat-value"><?= count($crops_result) ?> units </div>
-                
+                <?php
+                    $total_units = array_sum(array_column($crops_result, 'total_quantity'));
+                ?>
+                <div class="stat-value"><?= $total_units ?> units</div>
             </div>
         <?php endif; ?>
     </div>
@@ -822,7 +832,10 @@ $stmt->close();
         <?php if (!empty($crops_result)): ?>
             <div class="section-card" style="margin-top:24px;">
                 <div class="section-header"><h3 class="section-title">Crops Sold</h3></div>
-                <div class="stat-value"><?= count($crops_result) ?> units </div>
+                <?php
+                $total_units = array_sum(array_column($crops_result, 'total_quantity'));
+                ?>
+                <div class="stat-value"><?= $total_units ?> units</div>
                 <canvas id="cropsChart"></canvas>
             </div>
         <?php endif; ?>

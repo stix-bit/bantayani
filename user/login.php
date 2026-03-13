@@ -302,6 +302,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <p>BANTAY-ANI is a farm-to-market trading and logistics platform designed to support small-scale farmers, buyers, and local agricultural authorities through a centralized digital system. Our mission is to improve transparency, efficiency, and connectivity within the agricultural supply chain by providing tools that simplify production monitoring, market access, and delivery coordination.</p>
         <p>Many farmers still rely on traditional methods for managing harvests, communicating with buyers, and tracking transactions. These manual processes often limit their access to markets and reduce their bargaining power. BANTAY-ANI addresses these challenges by offering an integrated online platform where farmers can manage crop inventory, schedule harvests, coordinate deliveries, and connect directly with verified buyers.</p>
         <p>At its core, BANTAY-ANI aims to empower farmers, strengthen local agriculture, and create a more transparent and sustainable farm-to-market ecosystem for communities.</p>
+        <p><strong>Created using PHP, HTML/CSS, Javascript, MySQL</strong></p>
     </aside>
 </div>
 </body>

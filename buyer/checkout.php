@@ -49,7 +49,7 @@ if ($order_confirmed) {
     }
 
     // Set order status based on order type
-    $order_status = $has_cooperative_items ? 'Pending' : 'Confirmed';
+    $order_status = 'Pending';
     
     $stmtOrder = $conn->prepare("INSERT INTO orders (buyer_id, order_status) VALUES (?, ?)");
     $stmtOrder->bind_param("is", $buyer_id, $order_status);

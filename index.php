@@ -932,7 +932,7 @@ if (!isset($_SESSION['user_id'])) {
                             <div class="action-desc">Track your sales and growth</div>
                         </a>
                     <?php elseif ($user_role === 'Buyer'): ?>
-                        <a href="./buyer/marketplace.php" class="action-card">
+                        <a href="marketplace.php" class="action-card">
                             <div class="action-icon">🛒</div>
                             <div class="action-title">Browse Marketplace</div>
                             <div class="action-desc">Find fresh produce</div>
