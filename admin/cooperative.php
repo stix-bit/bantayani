@@ -72,11 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['delete_order'], $_POST['order_id'])) {
         $order_id = (int) $_POST['order_id'];
         if ($order_id > 0) {
-            $stmt = $conn->prepare("DELETE FROM order_items WHERE order_id = ? AND pool_id IS NOT NULL");
+            // Soft delete cooperative order and its pool-related items
+            $stmt = $conn->prepare("UPDATE order_items SET deleted_at = NOW() WHERE order_id = ? AND pool_id IS NOT NULL");
             $stmt->bind_param('i', $order_id);
             $stmt->execute();
             $stmt->close();
-            $stmt = $conn->prepare("DELETE FROM orders WHERE order_id = ?");
+
+            $stmt = $conn->prepare("UPDATE orders SET deleted_at = NOW() WHERE order_id = ?");
             $stmt->bind_param('i', $order_id);
             $stmt->execute();
             $stmt->close();
@@ -85,24 +87,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Pool delete action
-    if (isset($_POST['action'], $_POST['pool_id']) && $_POST['action'] === 'delete') {
+    // Pool delete / restore actions
+    if (isset($_POST['action'], $_POST['pool_id'])) {
         $pool_id = (int) $_POST['pool_id'];
-        $stmt = $conn->prepare("DELETE FROM cooperative_members WHERE pool_id = ?");
-        $stmt->bind_param("i", $pool_id);
-        $stmt->execute();
-        $stmt->close();
-        $stmt = $conn->prepare("DELETE FROM cooperative_pools WHERE pool_id = ?");
-        $stmt->bind_param("i", $pool_id);
-        $stmt->execute();
-        $stmt->close();
+
+        if ($_POST['action'] === 'delete') {
+            // Soft delete pool members and pool itself
+            $stmt = $conn->prepare("UPDATE cooperative_members SET deleted_at = NOW() WHERE pool_id = ?");
+            $stmt->bind_param("i", $pool_id);
+            $stmt->execute();
+            $stmt->close();
+
+            $stmt = $conn->prepare("UPDATE cooperative_pools SET deleted_at = NOW() WHERE pool_id = ?");
+            $stmt->bind_param("i", $pool_id);
+            $stmt->execute();
+            $stmt->close();
+        } elseif ($_POST['action'] === 'restore') {
+            // Restore pool members and pool
+            $stmt = $conn->prepare("UPDATE cooperative_members SET deleted_at = NULL WHERE pool_id = ?");
+            $stmt->bind_param("i", $pool_id);
+            $stmt->execute();
+            $stmt->close();
+
+            $stmt = $conn->prepare("UPDATE cooperative_pools SET deleted_at = NULL WHERE pool_id = ?");
+            $stmt->bind_param("i", $pool_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+
         header('Location: cooperative.php');
         exit;
     }
 }
 
 
-// Fetch all cooperative pools with member count
+// Fetch all cooperative pools with member count (include archived)
 $select_extras = ($has_unit_price ? ", p.unit_price" : "");
 $sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, p.created_at, c.crop_name, p.unit $select_extras,
         (SELECT COUNT(DISTINCT farmer_id) FROM cooperative_members WHERE pool_id = p.pool_id) AS member_count,
@@ -113,7 +132,7 @@ $sql = "SELECT p.pool_id, p.crop_id, p.total_quantity, p.created_at, c.crop_name
 $result = $conn->query($sql);
 $pools = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
-// Fetch cooperative orders (orders that include pool based items)
+// Fetch cooperative orders (orders that include pool based items, including archived)
 $coop_orders_sql = "
     SELECT
         o.order_id,
@@ -128,7 +147,12 @@ $coop_orders_sql = "
     FROM orders o
     JOIN buyer_profiles bp ON o.buyer_id = bp.buyer_id
     JOIN users u ON bp.buyer_id = u.user_id
-    WHERE EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.order_id AND oi.pool_id IS NOT NULL)
+    WHERE EXISTS (
+          SELECT 1 
+          FROM order_items oi 
+          WHERE oi.order_id = o.order_id 
+            AND oi.pool_id IS NOT NULL
+      )
     ORDER BY o.order_date DESC
 ";
 $coop_orders_result = $conn->query($coop_orders_sql);
@@ -203,12 +227,14 @@ $coop_orders = $coop_orders_result ? $coop_orders_result->fetch_all(MYSQLI_ASSOC
                         <?php if ($has_unit_price): ?><th>Unit Price</th><?php endif; ?>
                         <th>Contributors</th>
                         <th>Created</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if (!empty($pools)): ?>
                     <?php foreach ($pools as $pool): ?>
+                        <?php $is_archived = !empty($pool['deleted_at']); ?>
                         <tr>
                             <td><?= htmlspecialchars($pool['crop_name']) ?> <span class="status-badge" style="font-size:0.75rem;"><?= htmlspecialchars($pool['unit']) ?></span></td>
                             <td><?= number_format((float)($pool['total_quantity'] ?? 0), 2) ?></td>
@@ -218,15 +244,36 @@ $coop_orders = $coop_orders_result ? $coop_orders_result->fetch_all(MYSQLI_ASSOC
                             <td><?= (int) $pool['member_count'] ?></td>
                             <td><?= date('M d, Y', strtotime($pool['created_at'])) ?></td>
                             <td>
-                                <button type="button" class="icon-btn delete-btn" onclick='openDeleteModal(<?= $pool["pool_id"] ?>, <?= json_encode($pool["crop_name"]) ?>)'>
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
+                                <?php if ($is_archived): ?>
+                                    <span class="status-badge status-pending" style="background:#fee2e2;color:#b91c1c;">
+                                        ARCHIVED
+                                    </span>
+                                <?php else: ?>
+                                    <span class="status-badge status-confirmed">
+                                        Active
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (!$is_archived): ?>
+                                    <button type="button" class="icon-btn delete-btn" onclick='openDeleteModal(<?= $pool["pool_id"] ?>, <?= json_encode($pool["crop_name"]) ?>)'>
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                <?php else: ?>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="action" value="restore">
+                                        <input type="hidden" name="pool_id" value="<?= (int)$pool['pool_id'] ?>">
+                                        <button type="submit" class="icon-btn edit-btn" title="Restore pool">
+                                            <i class="fa-solid fa-rotate-left"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="<?= $has_unit_price ? 6 : 5 ?>" style="text-align:center; padding:40px;">No cooperative pools found.</td>
+                        <td colspan="<?= $has_unit_price ? 7 : 6 ?>" style="text-align:center; padding:40px;">No cooperative pools found.</td>
                     </tr>
                 <?php endif; ?>
                 </tbody>
@@ -288,10 +335,10 @@ $coop_orders = $coop_orders_result ? $coop_orders_result->fetch_all(MYSQLI_ASSOC
 </main>
 
 <!-- Delete Modal -->
-<div id="deleteModal" class="modal">
+<!-- <div id="deleteModal" class="modal">
     <div class="modal-box">
-        <h3>Confirm Delete</h3>
-        <p>Are you sure you want to delete the cooperative pool for <strong id="deletePoolName"></strong>? This will remove all contributor records.</p>
+        <h3>Confirm Archive</h3>
+        <p>Are you sure you want to archive the cooperative pool for <strong id="deletePoolName"></strong>? This will remove all contributor records.</p>
         <form method="POST">
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="pool_id" id="deletePoolId">
@@ -301,7 +348,7 @@ $coop_orders = $coop_orders_result ? $coop_orders_result->fetch_all(MYSQLI_ASSOC
             </div>
         </form>
     </div>
-</div>
+</div> -->
 
 <script>
 function openDeleteModal(poolId, cropName) {

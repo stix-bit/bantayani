@@ -12,13 +12,14 @@ if ($user_role === 'Farmer') {
 
 // Fetch latest unread announcements for current user
 $announcement_widget_query = "
-    SELECT a.announcement_id, a.title, a.announcement_type, a.priority, a.created_at
+    SELECT a.announcement_id, a.title, a.announcement_type, a.priority, a.created_at, a.deleted_at
     FROM announcements a
     LEFT JOIN announcement_views av ON a.announcement_id = av.announcement_id AND av.user_id = ?
     WHERE a.is_active = 1
     AND (a.target_audience = 'All' OR a.target_audience = ?)
     AND (a.expires_at IS NULL OR a.expires_at > NOW())
     AND av.view_id IS NULL
+    AND a.deleted_at IS NULL
     ORDER BY 
         CASE a.priority 
             WHEN 'Urgent' THEN 1

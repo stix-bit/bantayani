@@ -32,7 +32,16 @@ if (isset($_POST['action'])) {
     if ($_POST['action'] === 'delete' && isset($_POST['crop_id'])) {
         $crop_id = (int)$_POST['crop_id'];
 
-        $stmt = $conn->prepare("DELETE FROM crops WHERE crop_id = ?");
+        // Soft delete crop
+        $stmt = $conn->prepare("UPDATE crops SET deleted_at = NOW() WHERE crop_id = ?");
+        $stmt->bind_param("i", $crop_id);
+        $stmt->execute();
+    }
+
+    if ($_POST['action'] === 'restore' && isset($_POST['crop_id'])) {
+        $crop_id = (int)$_POST['crop_id'];
+
+        $stmt = $conn->prepare("UPDATE crops SET deleted_at = NULL WHERE crop_id = ?");
         $stmt->bind_param("i", $crop_id);
         $stmt->execute();
     }
@@ -51,7 +60,8 @@ if (isset($_POST['action'])) {
 /* =========================
    FETCH DATA
 ========================= */
-$categories = $conn->query("SELECT * FROM crop_categories ORDER BY category_name ASC")->fetch_all(MYSQLI_ASSOC);
+// Only allow selecting non-archived crop categories in forms/filters
+$categories = $conn->query("SELECT * FROM crop_categories WHERE deleted_at IS NULL ORDER BY category_name ASC")->fetch_all(MYSQLI_ASSOC);
 
 // Filters & sorting
 $filter_category = $_GET['category'] ?? '';
@@ -61,8 +71,8 @@ $sort = $_GET['sort'] ?? 'name_asc';
 $allowed_sort = ['name_asc','name_desc','category','unit'];
 if (!in_array($sort,$allowed_sort)) $sort='name_asc';
 
-// Build query dynamically
-$sql = "SELECT c.crop_id, c.crop_name, c.unit, c.category_id, cc.category_name 
+// Build query dynamically (include both active and archived crops/categories)
+$sql = "SELECT c.crop_id, c.crop_name, c.unit, c.category_id, cc.category_name, c.deleted_at 
         FROM crops c 
         LEFT JOIN crop_categories cc ON c.category_id = cc.category_id
         WHERE 1=1";
@@ -199,30 +209,53 @@ $stmt->close();
     <th>Crop Name</th>
     <th>Category</th>
     <th>Unit</th>
+    <th>Status</th>
     <th>Actions</th>
 </tr>
 </thead>
 <tbody>
 <?php if(!empty($crops)): ?>
     <?php foreach($crops as $crop): ?>
+        <?php $is_archived = !empty($crop['deleted_at']); ?>
         <tr>
             <td><?= htmlspecialchars($crop['crop_name']) ?></td>
             <td><?= htmlspecialchars($crop['category_name'] ?? 'Uncategorized') ?></td>
             <td><?= htmlspecialchars($crop['unit']) ?></td>
             <td>
-                <button class="icon-btn edit-btn" onclick="openEditModal(
-                    <?= $crop['crop_id'] ?>,
-                    '<?= htmlspecialchars($crop['crop_name'], ENT_QUOTES) ?>',
-                    '<?= $crop['unit'] ?>',
-                    <?= $crop['category_id'] ?>
-                )"><i class="fa-solid fa-pen-to-square"></i></button>
-                <button class="icon-btn delete-btn" onclick="openDeleteModal(<?= $crop['crop_id'] ?>)">
-                    <i class="fa-solid fa-trash"></i></button>
+                <?php if ($is_archived): ?>
+                    <span class="status-badge status-pending" style="background:#fee2e2;color:#b91c1c;">
+                        ARCHIVED
+                    </span>
+                <?php else: ?>
+                    <span class="status-badge status-confirmed">
+                        Active
+                    </span>
+                <?php endif; ?>
+            </td>
+            <td>
+                <?php if (!$is_archived): ?>
+                    <button class="icon-btn edit-btn" onclick="openEditModal(
+                        <?= $crop['crop_id'] ?>,
+                        '<?= htmlspecialchars($crop['crop_name'], ENT_QUOTES) ?>',
+                        '<?= $crop['unit'] ?>',
+                        <?= $crop['category_id'] ?>
+                    )"><i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="icon-btn delete-btn" onclick="openDeleteModal(<?= $crop['crop_id'] ?>)">
+                        <i class="fa-solid fa-trash"></i></button>
+                <?php else: ?>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="restore">
+                        <input type="hidden" name="crop_id" value="<?= $crop['crop_id'] ?>">
+                        <button type="submit" class="icon-btn edit-btn" title="Restore crop">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </form>
+                <?php endif; ?>
             </td>
         </tr>
     <?php endforeach; ?>
 <?php else: ?>
-<tr><td colspan="4" style="text-align:center; padding:40px;">No crops found.</td></tr>
+<tr><td colspan="5" style="text-align:center; padding:40px;">No crops found.</td></tr>
 <?php endif; ?>
 </tbody>
 </table>

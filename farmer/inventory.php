@@ -153,7 +153,7 @@ if (!empty($current_weather) && empty($_SESSION['weather_alerts_cleared'])) {
 
 
 
-// yield analytics
+// yield analytics (include archived inventory)
 $analytics_stmt = $conn->prepare("
     SELECT 
         COUNT(*) as total_crops,
@@ -220,11 +220,24 @@ if (isset($_POST['action'])) {
 
     if ($_POST['action'] === 'delete') {
         $inventory_id = $_POST['inventory_id'];
-        $stmt = $conn->prepare("DELETE FROM crops_inventory WHERE inventory_id = ? AND farmer_id = ?");
+        // Soft delete inventory row
+        $stmt = $conn->prepare("UPDATE crops_inventory SET deleted_at = NOW() WHERE inventory_id = ? AND farmer_id = ?");
         $stmt->bind_param("ii", $inventory_id, $farmer_id);
         $stmt->execute();
         $stmt->close();
-        $_SESSION['message'] = 'Crop deleted successfully!';
+        $_SESSION['message'] = 'Crop archived successfully!';
+        header("Location: inventory.php");
+        exit;
+    }
+
+    if ($_POST['action'] === 'restore') {
+        $inventory_id = $_POST['inventory_id'];
+        // Restore archived inventory row
+        $stmt = $conn->prepare("UPDATE crops_inventory SET deleted_at = NULL WHERE inventory_id = ? AND farmer_id = ?");
+        $stmt->bind_param("ii", $inventory_id, $farmer_id);
+        $stmt->execute();
+        $stmt->close();
+        $_SESSION['message'] = 'Crop restored successfully!';
         header("Location: inventory.php");
         exit;
     }
@@ -237,9 +250,9 @@ $crops = $crops_stmt->fetch_all(MYSQLI_ASSOC);
 // Dynamic pricing: allowed range per crop (for modals)
 $price_ranges_by_crop = getAllCropsDynamicPriceRanges($conn);
 
-// Fetch farmer inventory with images
+// Fetch farmer inventory with images (include archived)
 $stmt = $conn->prepare("
-    SELECT ci.inventory_id, ci.crop_id, ci.quantity, ci.harvest_date, ci.price, c.crop_name, ci.unit,
+    SELECT ci.inventory_id, ci.crop_id, ci.quantity, ci.harvest_date, ci.price, c.crop_name, ci.unit, ci.deleted_at,
            GROUP_CONCAT(ci_img.image_path ORDER BY ci_img.is_primary DESC) as images,
            GROUP_CONCAT(ci_img.image_id ORDER BY ci_img.is_primary DESC) as image_ids
     FROM crops_inventory ci
@@ -247,28 +260,28 @@ $stmt = $conn->prepare("
     LEFT JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
     WHERE ci.farmer_id = ?
     GROUP BY ci.inventory_id
-    ORDER BY ci.created_at DESC
+    ORDER BY ci.created_at ASC
 ");
 $stmt->bind_param("i", $farmer_id);
 $stmt->execute();
 $result = $stmt->get_result();
 $inventory = $result->fetch_all(MYSQLI_ASSOC);
 
-// Fetch crops that haven't been harvested yet (all scheduled crops)
+// Fetch crops that haven't been harvested yet (all scheduled crops, include archived)
 $due_stmt = $conn->prepare("
     SELECT ci.inventory_id, ci.harvest_date, ci.quantity, c.crop_name, ci.unit
     FROM crops_inventory ci
     JOIN crops c ON ci.crop_id = c.crop_id
     WHERE ci.farmer_id = ?
       AND (ci.harvest_status IS NULL OR ci.harvest_status = 'Scheduled')
-    ORDER BY ci.harvest_date ASC, ci.created_at DESC
+    ORDER BY ci.harvest_date ASC, ci.created_at ASC
 ");
 $due_stmt->bind_param('i', $farmer_id);
 $due_stmt->execute();
 $due_harvests = $due_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $due_stmt->close();
 
-// Fetch harvested crops
+// Fetch harvested crops (include archived)
 $harvested_stmt = $conn->prepare("
     SELECT ci.inventory_id, ci.harvest_date, ci.quantity, c.crop_name, ci.unit, ci.harvest_confirmed_at
     FROM crops_inventory ci
@@ -902,12 +915,14 @@ if (!empty($due_harvests)) {
                             <th>Quantity</th>
                             <th>Harvest Date</th>
                             <th>Price</th>
+                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (!empty($inventory)): ?>
                             <?php foreach ($inventory as $item): ?>
+                                <?php $is_archived = !empty($item['deleted_at']); ?>
                                 <tr class="crop-row" data-crop-name="<?= strtolower(htmlspecialchars($item['crop_name'])) ?>">
                                     <td><?= htmlspecialchars($item['crop_name']) ?></td>
                                     <td>
@@ -936,12 +951,31 @@ if (!empty($due_harvests)) {
                                     <td><?= htmlspecialchars($item['harvest_date'] && $item['harvest_date'] !== '0000-00-00' ? (new DateTime($item['harvest_date']))->format('Y-m-d') : 'Not set') ?></td>
                                     <td><?= number_format($item['price'],2) ?></td>
                                     <td>
+                                        <?php if ($is_archived): ?>
+                                            <span class="status-badge status-pending" style="background:#fee2e2;color:#b91c1c;">
+                                                ARCHIVED
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="status-badge status-confirmed">
+                                                Active
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
                                         <a href="crop_edit.php?id=<?= $item['inventory_id'] ?>" class="icon-btn edit-btn" title="Edit Crop" style="margin-right: 8px;"><i class="fa-solid fa-pen-to-square"></i></a>
-                                        <form method="POST" style="display:inline;">
-                                            <input type="hidden" name="action" value="delete">
-                                            <input type="hidden" name="inventory_id" value="<?= $item['inventory_id'] ?>">
-                                            <button type="submit" class="icon-btn delete-btn" title="Delete Crop" onclick="return confirm('Are you sure you want to delete this crop?')"><i class="fa-solid fa-trash"></i></button>
-                                        </form>
+                                        <?php if (!$is_archived): ?>
+                                            <form method="POST" style="display:inline;">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="inventory_id" value="<?= $item['inventory_id'] ?>">
+                                                <button type="submit" class="icon-btn delete-btn" title="Archive Crop" onclick="return confirm('Are you sure you want to archive this crop?')"><i class="fa-solid fa-trash"></i></button>
+                                            </form>
+                                        <?php else: ?>
+                                            <form method="POST" style="display:inline;">
+                                                <input type="hidden" name="action" value="restore">
+                                                <input type="hidden" name="inventory_id" value="<?= $item['inventory_id'] ?>">
+                                                <button type="submit" class="icon-btn edit-btn" title="Restore Crop"><i class="fa-solid fa-rotate-left"></i></button>
+                                            </form>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

@@ -28,7 +28,16 @@ if (isset($_POST['action'])) {
     if ($_POST['action'] === 'delete' && isset($_POST['category_id'])) {
         $category_id = (int)$_POST['category_id'];
 
-        $stmt = $conn->prepare("DELETE FROM crop_categories WHERE category_id = ?");
+        // Soft delete category
+        $stmt = $conn->prepare("UPDATE crop_categories SET deleted_at = NOW() WHERE category_id = ?");
+        $stmt->bind_param("i", $category_id);
+        $stmt->execute();
+    }
+
+    if ($_POST['action'] === 'restore' && isset($_POST['category_id'])) {
+        $category_id = (int)$_POST['category_id'];
+
+        $stmt = $conn->prepare("UPDATE crop_categories SET deleted_at = NULL WHERE category_id = ?");
         $stmt->bind_param("i", $category_id);
         $stmt->execute();
     }
@@ -150,24 +159,47 @@ $stmt->close();
 <thead>
 <tr>
     <th>Category Name</th>
+    <th>Status</th>
     <th>Actions</th>
 </tr>
 </thead>
 <tbody>
 <?php if(!empty($categories)): ?>
     <?php foreach($categories as $cat): ?>
+        <?php $is_archived = !empty($cat['deleted_at']); ?>
         <tr>
             <td><?= htmlspecialchars($cat['category_name']) ?></td>
             <td>
-                <button class="icon-btn edit-btn" onclick="openEditModal(<?= $cat['category_id'] ?>, '<?= htmlspecialchars($cat['category_name'], ENT_QUOTES) ?>')">
-                    <i class="fa-solid fa-pen-to-square"></i></button>
-                <button class="icon-btn delete-btn" onclick="openDeleteModal(<?= $cat['category_id'] ?>)">
-                    <i class="fa-solid fa-trash"></i></button>
+                <?php if ($is_archived): ?>
+                    <span class="status-badge status-pending" style="background:#fee2e2;color:#b91c1c;">
+                        ARCHIVED
+                    </span>
+                <?php else: ?>
+                    <span class="status-badge status-confirmed">
+                        Active
+                    </span>
+                <?php endif; ?>
+            </td>
+            <td>
+                <?php if (!$is_archived): ?>
+                    <button class="icon-btn edit-btn" onclick="openEditModal(<?= $cat['category_id'] ?>, '<?= htmlspecialchars($cat['category_name'], ENT_QUOTES) ?>')">
+                        <i class="fa-solid fa-pen-to-square"></i></button>
+                    <button class="icon-btn delete-btn" onclick="openDeleteModal(<?= $cat['category_id'] ?>)">
+                        <i class="fa-solid fa-trash"></i></button>
+                <?php else: ?>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="action" value="restore">
+                        <input type="hidden" name="category_id" value="<?= $cat['category_id'] ?>">
+                        <button type="submit" class="icon-btn edit-btn" title="Restore category">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </form>
+                <?php endif; ?>
             </td>
         </tr>
     <?php endforeach; ?>
 <?php else: ?>
-<tr><td colspan="2" style="text-align:center; padding:40px;">No categories found.</td></tr>
+<tr><td colspan="3" style="text-align:center; padding:40px;">No categories found.</td></tr>
 <?php endif; ?>
 </tbody>
 </table>
@@ -211,8 +243,8 @@ $stmt->close();
 <!-- DELETE MODAL -->
 <div id="deleteModal" class="modal">
 <div class="modal-box">
-<h3>Confirm Delete</h3>
-<p>Are you sure you want to delete this category?</p>
+<h3>Confirm Archive</h3>
+<p>Are you sure you want to archive this category?</p>
 <form method="POST">
 <input type="hidden" name="action" value="delete">
 <input type="hidden" name="category_id" id="deleteCategoryId">

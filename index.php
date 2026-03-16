@@ -15,6 +15,8 @@ if ($user_role === 'Admin') {
     exit;
 }
 
+
+
 $profile_img = null;
 
 $stmt = $conn->prepare("SELECT img_path FROM users WHERE user_id = ?");

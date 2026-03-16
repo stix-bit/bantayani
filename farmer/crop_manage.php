@@ -23,11 +23,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_crop'])) {
         
         if ($result->num_rows > 0) {
             // Delete the crop
-            $delete_stmt = $conn->prepare("DELETE FROM crops_inventory WHERE inventory_id = ? AND farmer_id = ?");
+            $delete_stmt = $conn->prepare("UPDATE crops_inventory SET deleted_at = NOW() WHERE inventory_id = ? AND farmer_id = ?");
             $delete_stmt->bind_param('ii', $inventory_id, $farmer_id);
             $delete_stmt->execute();
             
-            $_SESSION['success_message'] = 'Crop removed from inventory successfully!';
+            $_SESSION['success_message'] = 'Crop archived from inventory successfully!';
         } else {
             $_SESSION['error_message'] = 'Crop not found or access denied.';
         }
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_crop'])) {
         $delete_stmt->close();
         
     } catch (Exception $e) {
-        $_SESSION['error_message'] = 'Error deleting crop: ' . $e->getMessage();
+        $_SESSION['error_message'] = 'Error archiving crop: ' . $e->getMessage();
     }
     
     header('Location: crop_manage.php');
@@ -68,7 +68,7 @@ if ($page > $total_pages) {
 
 // Fetch farmer's crops with category information (one image per crop)
 $crops_query = "
-    SELECT ci.inventory_id, c.crop_name, ci.quantity, ci.unit, ci.price, ci.harvest_date,
+    SELECT ci.inventory_id, c.crop_name, ci.quantity, ci.unit, ci.price, ci.harvest_date, ci.deleted_at,
            ci.harvest_status, cc.category_name,
            (SELECT image_path FROM crop_images WHERE inventory_id = ci.inventory_id ORDER BY image_id ASC LIMIT 1) AS image_path
     FROM crops_inventory ci
@@ -276,6 +276,18 @@ $crops_result = $crops_stmt->get_result();
             color: #991b1b;
         }
 
+        .status-archived {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #0353a4;
+        }
+
+
+
         .crop-actions {
             display: flex;
             gap: 8px;
@@ -421,16 +433,19 @@ $crops_result = $crops_stmt->get_result();
                                 </div>
                             </div>
                             
-                            <div class="status-badge status-<?php echo strtolower($crop['harvest_status']); ?>">
+                            Harvest Status: <div class="status-badge status-<?php echo strtolower($crop['harvest_status']); ?>">
                                 <?php echo htmlspecialchars($crop['harvest_status']); ?>
                             </div>
-                            
+
+                            Active Status: <div class="status-badge status-<?php echo $crop['deleted_at'] ? 'archived' : 'active'; ?>">
+                                <?php echo $crop['deleted_at'] ? 'Archived' : 'Active'; ?>
+                            </div>
                             <div class="crop-actions">
                                 <form method="POST" style="display: inline;">
                                     <input type="hidden" name="delete_crop" value="<?php echo $crop['inventory_id']; ?>">
                                     <button type="submit" class="btn btn-danger btn-small" 
-                                            onclick="return confirm('Are you sure you want to remove this crop from inventory?')">
-                                        Remove
+                                            onclick="return confirm('Are you sure you want to archive this crop from inventory?')">
+                                        Archive
                                     </button>
                                 </form>
                                 <a href="crop_edit.php?id=<?php echo $crop['inventory_id']; ?>" class="btn btn-secondary btn-small">

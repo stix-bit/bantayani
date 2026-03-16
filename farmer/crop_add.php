@@ -49,8 +49,8 @@ $farmer_id = $_SESSION['user_id'];
 // Ensure farmer profile exists
 checkAndCreateFarmerProfile($conn, $farmer_id);
 
-// Fetch crop categories
-$categories_result = $conn->query("SELECT category_id, category_name FROM crop_categories ORDER BY display_order, category_name");
+// Fetch crop categories (only non-archived for selection)
+$categories_result = $conn->query("SELECT category_id, category_name FROM crop_categories WHERE deleted_at IS NULL ORDER BY display_order, category_name");
 
 $errors = [];
 $success_message = '';

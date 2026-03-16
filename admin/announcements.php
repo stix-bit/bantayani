@@ -22,28 +22,28 @@ $stmt->bind_result($profile_img);
 $stmt->fetch();
 $stmt->close();
 
-// Handle Delete Announcement
+// Handle Delete (Soft Delete) Announcement
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     $delete_id = (int)$_GET['delete'];
-    
-    // Get image path before deleting
-    $stmt = $conn->prepare("SELECT image_path FROM announcements WHERE announcement_id = ?");
+
+    // Soft delete the announcement by setting deleted_at
+    $stmt = $conn->prepare("UPDATE announcements SET deleted_at = NOW() WHERE announcement_id = ?");
     $stmt->bind_param("i", $delete_id);
-    $stmt->execute();
-    $stmt->bind_result($img_to_delete);
-    $stmt->fetch();
-    $stmt->close();
-    
-    // Delete the announcement
-    $stmt = $conn->prepare("DELETE FROM announcements WHERE announcement_id = ?");
-    $stmt->bind_param("i", $delete_id);
-    
+
     if ($stmt->execute()) {
-        // Delete image file if exists
-        if ($img_to_delete && file_exists("../" . $img_to_delete)) {
-            unlink("../" . $img_to_delete);
-        }
-        $success = 'Announcement deleted successfully!';
+        $success = 'Announcement archived successfully!';
+    }
+    $stmt->close();
+}
+
+// Handle Restore Announcement
+if (isset($_GET['restore']) && is_numeric($_GET['restore'])) {
+    $restore_id = (int)$_GET['restore'];
+
+    $stmt = $conn->prepare("UPDATE announcements SET deleted_at = NULL WHERE announcement_id = ?");
+    $stmt->bind_param("i", $restore_id);
+    if ($stmt->execute()) {
+        $success = 'Announcement restored successfully!';
     }
     $stmt->close();
 }
@@ -134,7 +134,7 @@ if (isset($_GET['edit']) && is_numeric($_GET['edit'])) {
     $stmt->close();
 }
 
-// Fetch all announcements with creator info
+// Fetch all announcements with creator info (including archived)
 $announcements_query = "
     SELECT a.*, 
            CONCAT(u.first_name, ' ', u.last_name) as creator_name,
@@ -145,7 +145,7 @@ $announcements_query = "
 ";
 $announcements = $conn->query($announcements_query)->fetch_all(MYSQLI_ASSOC);
 
-// Get statistics
+// Get statistics (counting all announcements, including archived)
 $stats_query = "
     SELECT 
         COUNT(*) as total_announcements,
@@ -777,6 +777,11 @@ if (isset($_GET['logout'])) {
                                     <?php if (!$announcement['is_active']): ?>
                                         <span style="font-size: 0.9rem; color: #999;">(Inactive)</span>
                                     <?php endif; ?>
+                                    <?php if (!empty($announcement['deleted_at'])): ?>
+                                        <span style="font-size: 0.9rem; color: #b91c1c; margin-left:6px;">
+                                            (ARCHIVED)
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="announcement-meta">
                                     <span class="badge badge-<?= strtolower($announcement['announcement_type']) ?>">
@@ -824,11 +829,19 @@ if (isset($_GET['logout'])) {
                                onclick="return confirm('Toggle announcement status?')">
                                 <?= $announcement['is_active'] ? '⏸️ Deactivate' : '▶️ Activate' ?>
                             </a>
-                            <a href="?delete=<?= $announcement['announcement_id'] ?>" 
-                               class="btn btn-sm btn-delete"
-                               onclick="return confirm('Are you sure you want to delete this announcement?')">
-                                🗑️ Delete
-                            </a>
+                            <?php if (empty($announcement['deleted_at'])): ?>
+                                <a href="?delete=<?= $announcement['announcement_id'] ?>" 
+                                   class="btn btn-sm btn-delete"
+                                   onclick="return confirm('Archive this announcement?')">
+                                    🗑️ Archive
+                                </a>
+                            <?php else: ?>
+                                <a href="?restore=<?= $announcement['announcement_id'] ?>" 
+                                   class="btn btn-sm btn-edit"
+                                   onclick="return confirm('Restore this announcement?')">
+                                    ♻️ Restore
+                                </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php endforeach; ?>

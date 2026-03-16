@@ -59,6 +59,7 @@ $sql = "SELECT
             ci.unit, 
             ci.price, 
             ci.quantity, 
+            ci.deleted_at,
             f.farm_name,
             u.first_name AS farmer_first_name,
             u.last_name  AS farmer_last_name,
@@ -71,7 +72,7 @@ $sql = "SELECT
         JOIN users u ON ci.farmer_id = u.user_id
         LEFT JOIN crop_images ci_img ON ci.inventory_id = ci_img.inventory_id
         LEFT JOIN ratings r ON ci.inventory_id = r.inventory_id
-        WHERE $inventoryWhereClause
+        WHERE $inventoryWhereClause AND ci.deleted_at IS NULL
         GROUP BY ci.inventory_id
         ORDER BY $inventorySort";
 $result = $conn->query($sql);
@@ -91,6 +92,7 @@ $pool_sql = "
         p.unit
         " . ($has_pool_price ? ", p.unit_price" : "") . ",
         c.crop_name,
+        p.deleted_at,
         (
             SELECT ci_img.image_path
             FROM crops_inventory ci
@@ -102,7 +104,7 @@ $pool_sql = "
         ) AS pool_image
     FROM cooperative_pools p
     JOIN crops c ON p.crop_id = c.crop_id
-    WHERE $poolWhereClause
+    WHERE $poolWhereClause AND p.deleted_at IS NULL
     ORDER BY $poolSort
 ";
 $pools_result = $conn->query($pool_sql);

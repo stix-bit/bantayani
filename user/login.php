@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
-        $stmt = $conn->prepare('SELECT user_id, role, password, first_name FROM users WHERE email = ? LIMIT 1');
+        $stmt = $conn->prepare('SELECT user_id, role, password, first_name, deleted_at FROM users WHERE email = ? LIMIT 1');
         $stmt->bind_param('s', $email);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -47,25 +47,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         if ($user && password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['user_id'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['first_name'] = $user['first_name'];
 
-            if ($safe_next !== '') {
-                header('Location: ' . $safe_next);
+            if ($user['deleted_at'] !== null) {
+                $errors[] = 'Your account has been archived.';
+            } else {
+        
+                $_SESSION['user_id'] = $user['user_id'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['first_name'] = $user['first_name'];
+                $_SESSION['deleted_at'] = $user['deleted_at'];
+        
+                if ($safe_next !== '') {
+                    header('Location: ' . $safe_next);
+                    exit;
+                }
+        
+                if ($user['role'] === 'Admin') {
+                    header('Location: /bantayani/admin/index.php');
+                    exit;
+                }
+        
+                header('Location: /bantayani/index.php');
                 exit;
             }
-
-            if ($user['role'] === 'Admin') {
-                header('Location: /bantayani/admin/index.php');
-                exit;
-            }
-
-            header('Location: /bantayani/index.php');
-            exit;
+        
+        } else {
+            $errors[] = 'Invalid email or password.';
         }
-
-        $errors[] = 'Invalid email or password.';
     }
 }
 ?>

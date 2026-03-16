@@ -21,7 +21,15 @@ if (isset($_POST['action'], $_POST['user_id'])) {
     }
 
     if ($_POST['action'] === 'delete') {
-        $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
+        // Soft delete user by setting deleted_at instead of removing row
+        $stmt = $conn->prepare("UPDATE users SET deleted_at = NOW() WHERE user_id = ?");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+    }
+
+    if ($_POST['action'] === 'restore') {
+        // Restore previously soft-deleted user
+        $stmt = $conn->prepare("UPDATE users SET deleted_at = NULL WHERE user_id = ?");
         $stmt->bind_param("i", $user_id);
         $stmt->execute();
     }
@@ -53,8 +61,10 @@ $sort = isset($_GET['sort']) ? trim($_GET['sort']) : 'joined_desc';
 $allowed_sort = ['joined_desc', 'joined_asc', 'name_asc', 'name_desc', 'email_asc', 'email_desc', 'role', 'verified'];
 if (!in_array($sort, $allowed_sort)) $sort = 'joined_desc';
 
-// Build query
-$sql = "SELECT user_id, first_name, last_name, email, role, is_verified, created_at FROM users WHERE 1=1";
+// Build query (include both active and archived users)
+$sql = "SELECT user_id, first_name, last_name, email, role, is_verified, created_at, deleted_at 
+        FROM users 
+        WHERE 1=1";
 $params = [];
 $types = '';
 if ($filter_role !== '') {
@@ -131,8 +141,8 @@ function closeEditModal() {
 <!-- Delete Modal -->
 <div id="deleteModal" class="modal">
     <div class="modal-box">
-        <h3>Confirm Delete</h3>
-        <p>Are you sure you want to delete this user?</p>
+        <h3>Confirm Archive</h3>
+        <p>Are you sure you want to archive this user?</p>
 
         <form method="POST" id="deleteForm">
             <input type="hidden" name="user_id" id="deleteUserId">
@@ -278,12 +288,14 @@ function closeEditModal() {
                         <th>Role</th>
                         <th>Verified</th>
                         <th>Joined</th>
+                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if (!empty($users)): ?>
                     <?php foreach ($users as $user): ?>
+                        <?php $is_archived = !empty($user['deleted_at']); ?>
                         <tr>
                             <td><?= htmlspecialchars($user['first_name'].' '.$user['last_name']) ?></td>
                             <td><?= htmlspecialchars($user['email']) ?></td>
@@ -295,25 +307,46 @@ function closeEditModal() {
                             </td>
                             <td><?= date('M d, Y', strtotime($user['created_at'])) ?></td>
                             <td>
-                                <button class="icon-btn edit-btn"
-                                    onclick="openEditModal(
-                                        <?= $user['user_id'] ?>,
-                                        '<?= $user['role'] ?>',
-                                        <?= $user['is_verified'] ?>
-                                    )">
-                                    <i class="fa-solid fa-pen-to-square"></i>
-                                </button>
+                                <?php if ($is_archived): ?>
+                                    <span class="status-badge status-pending" style="background:#fee2e2;color:#b91c1c;">
+                                        ARCHIVED
+                                    </span>
+                                <?php else: ?>
+                                    <span class="status-badge status-confirmed">
+                                        Active
+                                    </span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (!$is_archived): ?>
+                                    <button class="icon-btn edit-btn"
+                                        onclick="openEditModal(
+                                            <?= $user['user_id'] ?>,
+                                            '<?= $user['role'] ?>',
+                                            <?= $user['is_verified'] ?>
+                                        )">
+                                        <i class="fa-solid fa-pen-to-square"></i>
+                                    </button>
 
-                                <button class="icon-btn delete-btn"
-                                    onclick="openDeleteModal(<?= $user['user_id'] ?>)">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
+                                    <button class="icon-btn delete-btn"
+                                        onclick="openDeleteModal(<?= $user['user_id'] ?>)">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                <?php else: ?>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="user_id" value="<?= $user['user_id'] ?>">
+                                        <input type="hidden" name="action" value="restore">
+                                        <button type="submit" class="icon-btn edit-btn" title="Restore user">
+                                            <i class="fa-solid fa-rotate-left"></i>
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
-                        <td colspan="6" style="text-align:center; padding:40px;">
+                        <td colspan="7" style="text-align:center; padding:40px;">
                             No users found.
                         </td>
                     </tr>

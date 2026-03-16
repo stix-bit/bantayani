@@ -54,7 +54,7 @@ $query = "
            (SELECT COUNT(*) FROM announcement_views WHERE announcement_id = a.announcement_id AND user_id = ?) as is_viewed
     FROM announcements a
     LEFT JOIN users u ON a.created_by = u.user_id
-    WHERE a.is_active = 1
+    WHERE a.is_active = 1 AND a.deleted_at IS NULL
     AND (a.target_audience = 'All' OR a.target_audience = ?)
     AND (a.expires_at IS NULL OR a.expires_at > NOW())
     ORDER BY 
