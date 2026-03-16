@@ -113,7 +113,7 @@ $orders = $stmt->get_result();
                     <div class="cart-item-meta">Payment: <?= $row['payment_status'] ?? 'Pending'; ?></div>
                 </div>
                 <div style="min-width: 220px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-                    <span class="badge <?= $row['order_status'] === 'Pending' ? 'pending' : ($row['order_status'] === 'Cancelled' ? 'cancelled' : '') ;?>" style="padding: 4px 10px; border-radius: 999px; display: inline-flex; align-items: center;"><?= $row['order_status']; ?></span>
+                    <span class="badge <?= $row['order_status'] === 'Pending' ? 'pending' : ($row['order_status'] === 'Cancelled' ? 'cancelled' : '') ;?>" style="padding: 4px 10px; border-radius: 4px; display: inline-flex; align-items: center;"><?= $row['order_status']; ?></span>
                     <a class="btn" href="orders_view.php?id=<?= $row['order_id'] ?>">View</a>
                     <?php if ($row['order_status'] === 'Pending'): ?>
                         <form method="POST" action="cancel_order.php" style="display:inline;">
