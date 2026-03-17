@@ -848,5 +848,6 @@ if (isset($_GET['logout'])) {
             <?php endif; ?>
         </div>
     </div>
+    <?php include '../includes/image_preview.php'; ?>
 </body>
 </html>

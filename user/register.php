@@ -148,12 +148,33 @@ function saveOptionalImage(?array $file, string $subDir, string $prefix): ?strin
     return saveUploadedImage($file, $subDir, $prefix);
 }
 
+function saveMultipleImages(array $files, string $subDir, string $prefix): array
+{
+    $paths = [];
+    if (!empty($files['name'][0])) {
+        foreach ($files['name'] as $key => $name) {
+            if ($key >= 5) break; // Limit to 5 images
+            if ($files['error'][$key] === UPLOAD_ERR_OK) {
+                $fileData = [
+                    'name' => $files['name'][$key],
+                    'type' => $files['type'][$key],
+                    'tmp_name' => $files['tmp_name'][$key],
+                    'error' => $files['error'][$key],
+                    'size' => $files['size'][$key]
+                ];
+                $paths[] = saveUploadedImage($fileData, $subDir, $prefix);
+            }
+        }
+    }
+    return $paths;
+}
+
 function createUserWithProfiles(
     mysqli $conn,
     string $role,
     array $data,
     string $profilePath,
-    ?string $farmImagePath
+    array $farmImagePaths = []
 ): void {
     mysqli_begin_transaction($conn);
 
@@ -165,6 +186,7 @@ function createUserWithProfiles(
     $insertUserStmt->close();
 
     if ($role === 'Buyer') {
+        // ... (existing code for buyer)
         $buyerStmt = $conn->prepare('INSERT INTO buyer_profiles (buyer_id, preferred_payment_method, verified) VALUES (?, ?, 0)');
         $buyerStmt->bind_param('is', $userId, $data['preferred_payment_method']);
         $buyerStmt->execute();
@@ -201,10 +223,21 @@ function createUserWithProfiles(
         }
     } else {
         $region = trim($data['region'] ?? '') ?: null;
+        $primaryFarmImage = !empty($farmImagePaths) ? $farmImagePaths[0] : null;
         $farmerStmt = $conn->prepare('INSERT INTO farmer_profiles (farmer_id, farm_name, farm_location, region, farm_img_path) VALUES (?, ?, ?, ?, ?)');
-        $farmerStmt->bind_param('issss', $userId, $data['farm_name'], $data['farm_location'], $region, $farmImagePath);
+        $farmerStmt->bind_param('issss', $userId, $data['farm_name'], $data['farm_location'], $region, $primaryFarmImage);
         $farmerStmt->execute();
         $farmerStmt->close();
+
+        if (!empty($farmImagePaths)) {
+            $farmImgStmt = $conn->prepare('INSERT INTO farm_images (farmer_id, image_path, is_primary) VALUES (?, ?, ?)');
+            foreach ($farmImagePaths as $index => $path) {
+                $isPrimary = ($index === 0) ? 1 : 0;
+                $farmImgStmt->bind_param('isi', $userId, $path, $isPrimary);
+                $farmImgStmt->execute();
+            }
+            $farmImgStmt->close();
+        }
     }
 
     mysqli_commit($conn);
@@ -253,9 +286,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $farmLocation = trim($_POST['farm_location'] ?? '');
     $region = trim($_POST['region'] ?? '');
     $profileImage = $_FILES['profile_image'] ?? null;
-    $farmImage = $_FILES['farm_image'] ?? null;
+    $farmImages = $_FILES['farm_images'] ?? null;
 
     $formData = [
+        // ... (existing fields)
         'first_name' => $firstName,
         'middle_name' => $middleName,
         'last_name' => $lastName,
@@ -275,13 +309,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'region' => $region,
     ];
 
-    $errors = array_merge($errors, validateRegistrationInput($formData, $profileImage, $farmImage, $activeRole));
+    // Modify validateRegistrationInput to handle multiple farm images if needed
+    // For now, we'll just use the first one for validation
+    $farmImageForValidation = null;
+    if ($farmImages && !empty($farmImages['name'][0])) {
+        $farmImageForValidation = [
+            'name' => $farmImages['name'][0],
+            'type' => $farmImages['type'][0],
+            'tmp_name' => $farmImages['tmp_name'][0],
+            'error' => $farmImages['error'][0],
+            'size' => $farmImages['size'][0]
+        ];
+    }
+    $errors = array_merge($errors, validateRegistrationInput($formData, $profileImage, $farmImageForValidation, $activeRole));
 
     if (empty($errors) && emailAlreadyExists($conn, $email)) {
         $errors[] = 'Email is already registered. Please log in instead.';
     }
 
     $uploadedRelativePaths = [];
+    $farmImagePaths = [];
 
     if (empty($errors)) {
         try {
@@ -289,24 +336,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $uploadedRelativePaths[] = $profileImageRelativePath;
 
             if ($activeRole === 'Farmer') {
-                $farmImageRelativePath = saveOptionalImage($farmImage, 'farms', 'farm_');
-                if ($farmImageRelativePath !== null) {
-                    $uploadedRelativePaths[] = $farmImageRelativePath;
-                }
+                $farmImagePaths = saveMultipleImages($farmImages, 'farms', 'farm_');
+                $uploadedRelativePaths = array_merge($uploadedRelativePaths, $farmImagePaths);
             }
         } catch (RuntimeException $uploadException) {
             $errors[] = $uploadException->getMessage();
             deleteUploadedFiles($uploadedRelativePaths);
             $uploadedRelativePaths = [];
             $profileImageRelativePath = '';
-            $farmImageRelativePath = null;
+            $farmImagePaths = [];
         }
     }
 
     if (empty($errors)) {
         try {
             $formData['preferred_payment_method'] = $preferredPaymentMethod;
-            createUserWithProfiles($conn, $activeRole, $formData, $profileImageRelativePath, $farmImageRelativePath);
+            createUserWithProfiles($conn, $activeRole, $formData, $profileImageRelativePath, $farmImagePaths);
             $_SESSION['registration_success'] = 'Registration successful! You may now log in.';
             header('Location: login.php');
             exit;
@@ -666,9 +711,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
                 <div class="file-input" style="margin-top: 20px;">
-                    <label for="farm_image">Farm Photo (optional)</label>
-                    <input type="file" id="farm_image" name="farm_image" accept="image/*" />
-                    <p class="field-note">Upload one image to highlight your farm. JPG/PNG/GIF/WEBP accepted.</p>
+                    <label for="farm_images">Farm Photos (optional)</label>
+                    <input type="file" id="farm_images" name="farm_images[]" accept="image/*" multiple />
+                    <p class="field-note">Select multiple photos to showcase your farm. JPG/PNG/GIF/WEBP accepted.</p>
                 </div>
             </div>
         <?php endif; ?>
@@ -700,5 +745,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         toggleCompanyFields();
     </script>
 <?php endif; ?>
+    <?php include '../includes/image_preview.php'; ?>
 </body>
 </html>

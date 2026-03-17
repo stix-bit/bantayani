@@ -460,5 +460,6 @@ $stmt->close();
             }
         });
     </script>
+    <?php include '../includes/image_preview.php'; ?>
 </body>
 </html>

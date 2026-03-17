@@ -102,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         foreach ($_FILES['crop_images']['name'] as $key => $name) {
+            if ($key >= 5) break; // Limit to 5 images
             if ($_FILES['crop_images']['error'][$key] === UPLOAD_ERR_OK) {
                 $image_info = getimagesize($_FILES['crop_images']['tmp_name'][$key]);
                 if ($image_info !== false) {
@@ -281,56 +282,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: var(--beige);
         }
 
-        .image-preview-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 15px;
-            justify-content: center;
-        }
-
-        .image-preview {
-            position: relative;
-            width: 80px;
-            height: 80px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 2px solid #e4e7eb;
-        }
-
-        .image-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .image-preview .remove-btn {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .image-preview .primary-badge {
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            background: var(--green);
-            color: white;
-            font-size: 10px;
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-weight: bold;
+        .dynamic-price-box {
+            margin-top: 8px;
+            padding: 10px;
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            color: var(--green-dark);
         }
 
         .btn {
@@ -467,131 +426,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <!-- Harvest status is managed from inventory; removed from edit form per request -->
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" style="margin-top: 24px;">
                     <label>Update Crop Photos (Optional - Upload multiple photos)</label>
                     <div class="file-input">
                         <input type="file" name="crop_images[]" id="crop_images" 
                                accept="image/*" multiple>
                         <p>Upload up to 5 new photos (JPG, PNG, GIF, WEBP). First image will be primary.</p>
-                        <div id="image-preview" class="image-preview-container"></div>
+                        <div id="image-preview" class="image-preview-wrapper"></div>
                     </div>
                 </div>
 
-                <div style="display: flex; gap: 12px;">
+                <div style="display: flex; gap: 12px; margin-top: 24px;">
                     <button type="submit" class="btn">Update Crop</button>
                     <a href="crop_manage.php" class="btn btn-secondary">Cancel</a>
                 </div>
             </form>
         </div>
     </div>
-</body>
-<script>
-document.getElementById('crop_images').addEventListener('change', function(e) {
-    const previewContainer = document.getElementById('image-preview');
-    previewContainer.innerHTML = '';
-    
-    const files = Array.from(e.target.files).slice(0, 5); // Limit to 5 images
-    
-    files.forEach((file, index) => {
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const preview = document.createElement('div');
-                preview.className = 'image-preview';
-                
-                const img = document.createElement('img');
-                img.src = e.target.result;
-                
-                const removeBtn = document.createElement('button');
-                removeBtn.className = 'remove-btn';
-                removeBtn.innerHTML = '×';
-                removeBtn.onclick = function() {
-                    preview.remove();
-                };
-                
-                if (index === 0) {
-                    const primaryBadge = document.createElement('div');
-                    primaryBadge.className = 'primary-badge';
-                    primaryBadge.textContent = 'PRIMARY';
-                    preview.appendChild(primaryBadge);
-                }
-                
-                preview.appendChild(img);
-                preview.appendChild(removeBtn);
-                previewContainer.appendChild(preview);
-            };
-            
-            reader.readAsDataURL(file);
+    <script>
+    // load crop options based on category selection
+    function loadCropOptions(categoryId, selectedCropId) {
+        const cropSelect = document.getElementById('crop_id');
+        cropSelect.innerHTML = '<option value="">Loading...</option>';
+        if (!categoryId) {
+            cropSelect.innerHTML = '<option value="">Select Crop</option>';
+            return;
         }
-    });
-});
-</script>
 
-<script>
-// load crop options based on category selection
-function loadCropOptions(categoryId, selectedCropId) {
-    const cropSelect = document.getElementById('crop_id');
-    cropSelect.innerHTML = '<option value="">Loading...</option>';
-    if (!categoryId) {
-        cropSelect.innerHTML = '<option value="">Select Crop</option>';
-        return;
-    }
-
-    fetch('get_crops.php?category_id='+categoryId)
-        .then(res => res.json())
-        .then(data => {
-            cropSelect.innerHTML = '<option value="">Select Crop</option>';
-            data.forEach(crop => {
-                const opt = document.createElement('option');
-                opt.value = crop.crop_id;
-                opt.textContent = crop.crop_name;
-                if (parseInt(crop.crop_id) === parseInt(selectedCropId)) {
-                    opt.selected = true;
-                }
-                cropSelect.appendChild(opt);
+        fetch('get_crops.php?category_id='+categoryId)
+            .then(res => res.json())
+            .then(data => {
+                cropSelect.innerHTML = '<option value="">Select Crop</option>';
+                data.forEach(crop => {
+                    const opt = document.createElement('option');
+                    opt.value = crop.crop_id;
+                    opt.textContent = crop.crop_name;
+                    if (parseInt(crop.crop_id) === parseInt(selectedCropId)) {
+                        opt.selected = true;
+                    }
+                    cropSelect.appendChild(opt);
+                });
+            }).catch(() => {
+                cropSelect.innerHTML = '<option value="">Select Crop</option>';
             });
-        }).catch(() => {
-            cropSelect.innerHTML = '<option value="">Select Crop</option>';
-        });
-}
-
-document.getElementById('category_id').addEventListener('change', function() {
-    loadCropOptions(this.value, null);
-    updatePricingBox();
-});
-
-document.getElementById('crop_id').addEventListener('change', function() {
-    updatePricingBox();
-});
-
-function updatePricingBox() {
-    const cropId = document.getElementById('crop_id').value;
-    const infoBox = document.getElementById('dynamicPriceInfo');
-    if (!cropId) {
-        infoBox.style.display = 'none';
-        return;
     }
 
-    fetch('get_dynamic_price.php?crop_id=' + cropId)
-        .then(res => res.json())
-        .then(data => {
-            if (data.has_data) {
-                document.getElementById('recommendedPrice').textContent = parseFloat(data.recommended).toFixed(2);
-                document.getElementById('minPrice').textContent = parseFloat(data.price_min).toFixed(2);
-                document.getElementById('maxPrice').textContent = parseFloat(data.price_max).toFixed(2);
-                infoBox.style.display = 'block';
-            } else {
-                infoBox.style.display = 'none';
-            }
-        })
-        .catch(() => {
-            infoBox.style.display = 'none';
-        });
-}
+    document.getElementById('category_id').addEventListener('change', function() {
+        loadCropOptions(this.value, null);
+        updatePricingBox();
+    });
 
-// init with existing selection
-loadCropOptions(<?= (int)$selected_category_id ?>, <?= (int)$selected_crop_id ?>);
-updatePricingBox();
-</script>
+    document.getElementById('crop_id').addEventListener('change', function() {
+        updatePricingBox();
+    });
+
+    function updatePricingBox() {
+        const cropId = document.getElementById('crop_id').value;
+        const infoBox = document.getElementById('dynamicPriceInfo');
+        if (!cropId) {
+            infoBox.style.display = 'none';
+            return;
+        }
+
+        fetch('get_dynamic_price.php?crop_id=' + cropId)
+            .then(res => res.json())
+            .then(data => {
+                if (data.has_data) {
+                    document.getElementById('recommendedPrice').textContent = parseFloat(data.recommended).toFixed(2);
+                    document.getElementById('minPrice').textContent = parseFloat(data.price_min).toFixed(2);
+                    document.getElementById('maxPrice').textContent = parseFloat(data.price_max).toFixed(2);
+                    infoBox.style.display = 'block';
+                } else {
+                    infoBox.style.display = 'none';
+                }
+            })
+            .catch(() => {
+                infoBox.style.display = 'none';
+            });
+    }
+
+    // init with existing selection
+    loadCropOptions(<?= (int)$selected_category_id ?>, <?= (int)$selected_crop_id ?>);
+    updatePricingBox();
+    </script>
+    <?php include '../includes/image_preview.php'; ?>
+</body>
 </html>

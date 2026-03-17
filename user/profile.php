@@ -354,5 +354,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </form>
 </div>
 
+    <?php include '../includes/image_preview.php'; ?>
 </body>
 </html>

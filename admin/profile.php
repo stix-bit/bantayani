@@ -558,5 +558,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (card) card.classList.toggle('editing');
         }
     </script>
+    <?php include '../includes/image_preview.php'; ?>
 </body>
 </html>
