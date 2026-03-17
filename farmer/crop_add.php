@@ -107,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
 
         foreach ($_FILES['crop_images']['name'] as $key => $name) {
+            if ($key >= 5) break; // Limit to 5 images
             if ($_FILES['crop_images']['error'][$key] === UPLOAD_ERR_OK) {
                 $image_info = getimagesize($_FILES['crop_images']['tmp_name'][$key]);
                 if ($image_info !== false) {
@@ -179,11 +180,6 @@ label{font-weight:600;margin-bottom:6px;color:var(--green-dark);}
 input,select,textarea{padding:12px 14px;border:1px solid #d6dbe1;border-radius:8px;font-size:1rem;font-family:inherit;}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(31,138,112,0.1);}
 .file-input{border:2px dashed #c7d0d9;padding:20px;border-radius:12px;text-align:center;background:var(--beige);}
-.image-preview-container{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px;justify-content:center;}
-.image-preview{position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:2px solid #e4e7eb;}
-.image-preview img{width:100%;height:100%;object-fit:cover;}
-.image-preview .remove-btn{position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;}
-.image-preview .primary-badge{position:absolute;top:2px;left:2px;background:var(--green);color:white;font-size:10px;padding:2px 4px;border-radius:4px;font-weight:bold;}
 .dynamic-price-box{margin-top:6px;padding:6px 10px;background:rgba(31,138,112,0.1);border:1px solid rgba(31,138,112,0.4);border-radius:6px;font-size:0.95rem;color:var(--green-dark);}
 .btn{background:var(--green);color:white;border:none;padding:14px 28px;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.2s ease;}
 .btn:hover{background:var(--green-dark);transform:translateY(-1px);}
@@ -249,51 +245,31 @@ Recommended: ₱<span id="recommendedPrice">0.00</span> | Min: ₱<span id="minP
 <input type="date" id="harvest_date" name="harvest_date" value="<?= htmlspecialchars($old_inputs['harvest_date']); ?>" required>
 </div>
 
-<div class="form-group">
+</div>
+
+<div class="form-group" style="margin-top: 24px;">
 <label>Crop Photos (Required)</label>
 <div class="file-input">
 <input type="file" name="crop_images[]" id="crop_images" accept="image/*" multiple required>
 <p>Upload at least 1 photo (up to 5) in JPG/PNG/GIF/WEBP. First image will be primary.</p>
-<div id="image-preview" class="image-preview-container">
+<div id="image-preview" class="image-preview-wrapper">
 <?php foreach($sticky_images as $img): ?>
-<div class="image-preview">
+<div class="image-preview-item">
 <img src="<?= htmlspecialchars($img['path']); ?>" alt="">
-<?php if($img['is_primary']): ?><div class="primary-badge">PRIMARY</div><?php endif; ?>
-<button type="button" class="remove-btn" onclick="this.parentElement.remove();">×</button>
+<?php if($img['is_primary']): ?><div style="position:absolute;top:4px;left:4px;background:#1f8a70;color:white;font-size:12px;padding:4px 8px;border-radius:4px;font-weight:bold;z-index:5;box-shadow:0 1px 3px rgba(0,0,0,0.2);">PRIMARY</div><?php endif; ?>
+<button type="button" class="remove-preview" onclick="this.parentElement.remove();">×</button>
 </div>
 <?php endforeach; ?>
 </div>
 </div>
 </div>
 
-</div>
-<button type="submit" class="btn">Add to Inventory</button>
+<button type="submit" class="btn" style="margin-top: 24px;">Add to Inventory</button>
 </form>
 </div>
 </div>
 
 <script>
-// Image preview on file selection
-document.getElementById('crop_images').addEventListener('change', function(e) {
-    const container = document.getElementById('image-preview');
-    container.innerHTML = '';
-    const files = Array.from(e.target.files).slice(0,5);
-    files.forEach((file,index)=>{
-        if(file.type.startsWith('image/')){
-            const reader = new FileReader();
-            reader.onload = function(ev){
-                const div = document.createElement('div'); div.className='image-preview';
-                const img = document.createElement('img'); img.src=ev.target.result;
-                const btn = document.createElement('button'); btn.className='remove-btn'; btn.innerHTML='×';
-                btn.onclick=function(){div.remove();};
-                if(index===0){ const badge = document.createElement('div'); badge.className='primary-badge'; badge.textContent='PRIMARY'; div.appendChild(badge); }
-                div.appendChild(img); div.appendChild(btn); container.appendChild(div);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-});
-
 // Load crops based on category
 document.getElementById('category_id').addEventListener('change', function() {
     const categoryId = this.value;
@@ -338,5 +314,6 @@ if(<?= json_encode($old_inputs['category_id']); ?>){
     document.getElementById('category_id').dispatchEvent(event);
 }
 </script>
+    <?php include '../includes/image_preview.php'; ?>
 </body>
 </html>

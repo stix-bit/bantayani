@@ -588,5 +588,6 @@ $is_buyer_verified = ($buyer_profile['verified'] ?? 0) || ($user['is_verified'] 
             if (card) card.classList.toggle('editing');
         }
     </script>
+    <?php include '../includes/image_preview.php'; ?>
 </body>
 </html>

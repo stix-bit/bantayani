@@ -149,14 +149,14 @@ function getStatus($farmer, $avg) {
     <div class="topbar">
         <div class="page-title">
             <h1>Price Benchmarking</h1>
-            <p>Compare your crop prices with market averages</p>
+            <p>I-kompara ang presyo ng iyong pananim sa kabuuan</p>
         </div>
     </div>
 
     <div class="content">
         <div class="card">
             <div class="card-header">
-                <h2>🌱 Pricing Comparison & Dynamic Pricing</h2>
+                <h2>🌱 Pagkumpara ng Presyo & Rekomenda na Presyo</h2>
                 <form method="GET" style="display: flex; align-items: center; gap: 12px;">
                     <label style="color: var(--text-light); font-weight: 500;">Compare last:</label>
                     <select name="days" onchange="this.form.submit()" style="min-width: 120px;">
@@ -166,7 +166,7 @@ function getStatus($farmer, $avg) {
                     </select>
                 </form>
             </div>
-            <p style="color:var(--text-light); font-size:0.9rem; margin:-8px 0 16px 0;">Recommended price is based on supply, demand, current listings, and historical sales. When adding or editing inventory, your price must be within the <strong>Allowed Range</strong>.</p>
+            <p style="color:var(--text-light); font-size:0.9rem; margin:-8px 0 16px 0;">Rekomendadong presyo ay batay sa supply, demand, mga kasalukuyang listing, at historical na mga pagbebenta. Kapag nagdaragdag o nagbabago ng inventory, ang iyong presyo ay dapat nasa <strong>Pinapayagan na Range</strong>.</p>
 
             <table class="data-table">
                 <thead>
@@ -220,7 +220,7 @@ function getStatus($farmer, $avg) {
                     <?php else: ?>
                         <tr>
                             <td colspan="8" style="text-align:center; padding:40px; color:var(--text-light);">
-                                No pricing data available yet.
+                                Wala pang data sa pananim. Magdagdag ng pananim sa iyong inventory at maghintay ng mga order para makita ang benchmarking dito.
                             </td>
                         </tr>
                     <?php endif; ?>

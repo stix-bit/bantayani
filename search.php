@@ -121,7 +121,7 @@ if (isset($_GET['logout'])) {
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="./farmer/reports.php" class="nav-link">Reports</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="announcements.php" class="nav-link">Annunsyo</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
             <?php elseif ($user_role === 'Buyer'): ?>
@@ -129,7 +129,7 @@ if (isset($_GET['logout'])) {
                 <a href="marketplace.php" class="nav-link">Marketplace</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
                 <a href="reports.php" class="nav-link">Reports</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="announcements.php" class="nav-link">Annunsyo</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./buyer/notifications.php" class="nav-link">Notifications</a>
             <?php elseif ($user_role === 'Admin'): ?>

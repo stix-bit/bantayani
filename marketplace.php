@@ -135,7 +135,7 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="reports.php" class="nav-link">Reports</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="announcements.php" class="nav-link">Annunsyo</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
                 
@@ -145,7 +145,7 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
                 <a href="./buyer/cart.php" class="nav-link">Cart</a>
                 <a href="./buyer/orders.php" class="nav-link">My Orders</a>
                 <a href="reports.php" class="nav-link">Reports</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="announcements.php" class="nav-link">Annunsyo</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./buyer/notifications.php" class="nav-link">Notifications</a>
             <?php endif; ?>
@@ -178,7 +178,7 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
     <div class="main-container">
         <div class="page-header">
             <h1>🌾 Marketplace</h1>
-            <p>Browse fresh produce from local farmers and cooperative pools</p>
+            <p>Mag-browse ng mga sariwang ani mula sa mga lokal na magsasaka at mga pool ng kooperatiba</p>
         </div>
 
         <div class="filter-section" style="max-width: 900px; margin: 0 auto 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
@@ -198,7 +198,7 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
         <?php if (!empty($pools)): ?>
         <section class="marketplace-section" style="margin-bottom: 32px;">
             <h2 style="font-size: 1.25rem; margin-bottom: 12px; color: #0c5c4c;">🤝 Cooperative Pools (Large Volume)</h2>
-            <p style="color: #4c5662; margin-bottom: 16px;">Order in bulk from pooled produce—fulfills large orders that individual farmers cannot supply alone.</p>
+            <p style="color: #4c5662; margin-bottom: 16px;">Mag-order nang maramihan mula sa pinagsama-samang ani—natutupad ang malalaking order na hindi kayang ibigay ng mga indibidwal na magsasaka nang mag-isa.</p>
             <div class="marketplace" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;">
                 <?php foreach ($pools as $p): ?>
                 <div class="card" style="border-left: 4px solid #1f8a70;">
@@ -294,7 +294,7 @@ $pools = $pools_result ? $pools_result->fetch_all(MYSQLI_ASSOC) : [];
                 <?php } ?>
             <?php } else { ?>
                 <div class="no-results">
-                    No individual listings at the moment. Check cooperative pools above or check back soon!
+                    Walang mga indibidwal na listahan sa ngayon. Tingnan ang mga cooperative pool sa itaas o bumalik kaagad!
                 </div>
             <?php } ?>
         </div>

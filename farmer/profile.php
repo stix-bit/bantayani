@@ -86,6 +86,20 @@ $ratings = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 /* ============================
+   FETCH FARM IMAGES
+============================ */
+$stmt = $conn->prepare("
+    SELECT image_id, image_path, is_primary
+    FROM farm_images
+    WHERE farmer_id = ?
+    ORDER BY is_primary DESC, uploaded_at ASC
+");
+$stmt->bind_param('i', $user_id);
+$stmt->execute();
+$farm_images = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+/* ============================
    PROFILE IMAGE PATHS
 ============================ */
 $profile_img = $user['img_path'] ?? '';
@@ -202,54 +216,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         /* Farm Image Upload (farm) */
-        if (!empty($_FILES['farm_image']['name']) && $_FILES['farm_image']['error'] === UPLOAD_ERR_OK) {
-            $tmp = $_FILES['farm_image']['tmp_name'];
-            $ext = strtolower(pathinfo($_FILES['farm_image']['name'], PATHINFO_EXTENSION));
-            $allowed = ['jpg','jpeg','png','gif'];
+        $farm_image_paths = [];
+        if (!empty($_FILES['farm_images']['name'][0])) {
+            $uploadDir = __DIR__ . '/../images/uploads/farms';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
 
-            if (!in_array($ext, $allowed)) {
-                $errors[] = 'Invalid farm image type.';
-            } else {
-                $uploadDir = __DIR__ . '/../images/uploads/farms';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
+            foreach ($_FILES['farm_images']['name'] as $key => $name) {
+                if ($key >= 5) break; // Limit to 5 images
+                if ($_FILES['farm_images']['error'][$key] === UPLOAD_ERR_OK) {
+                    $tmp = $_FILES['farm_images']['tmp_name'][$key];
+                    $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+                    $allowed = ['jpg','jpeg','png','gif'];
 
-                $newName = 'farm_' . uniqid() . '.' . $ext;
-                $destination = $uploadDir . '/' . $newName;
+                    if (in_array($ext, $allowed)) {
+                        $newName = 'farm_' . uniqid() . '.' . $ext;
+                        $destination = $uploadDir . '/' . $newName;
 
-                if (move_uploaded_file($tmp, $destination)) {
-                    $farm_image_path = 'images/uploads/farms/' . $newName;
-                } else {
-                    $errors[] = 'Failed to upload farm image.';
+                        if (move_uploaded_file($tmp, $destination)) {
+                            $farm_image_paths[] = 'images/uploads/farms/' . $newName;
+                        }
+                    }
                 }
             }
         }
 
         if (empty($errors)) {
-            $farm_sql = "UPDATE farmer_profiles
-                         SET farm_name=?, farm_location=?, region=?";
+            $conn->begin_transaction();
+            try {
+                $farm_sql = "UPDATE farmer_profiles SET farm_name=?, farm_location=?, region=?";
+                if (!empty($farm_image_paths)) {
+                    // Update farm_img_path with the first image as primary if not already set
+                    $farm_sql .= ", farm_img_path=?";
+                }
+                $farm_sql .= " WHERE farmer_id=?";
 
-            if (isset($farm_image_path)) {
-                $farm_sql .= ", farm_img_path=?";
+                $stmt = $conn->prepare($farm_sql);
+                if (!empty($farm_image_paths)) {
+                    $stmt->bind_param('ssssi', $farm_name, $farm_location, $region, $farm_image_paths[0], $user_id);
+                } else {
+                    $stmt->bind_param('sssi', $farm_name, $farm_location, $region, $user_id);
+                }
+                $stmt->execute();
+                $stmt->close();
+
+                // Insert all new images into farm_images table
+                if (!empty($farm_image_paths)) {
+                    $stmt = $conn->prepare("INSERT INTO farm_images (farmer_id, image_path, is_primary) VALUES (?, ?, ?)");
+                    foreach ($farm_image_paths as $index => $path) {
+                        $is_primary = ($index === 0 && empty($farm_images)) ? 1 : 0;
+                        $stmt->bind_param('isi', $user_id, $path, $is_primary);
+                        $stmt->execute();
+                    }
+                    $stmt->close();
+                }
+
+                $conn->commit();
+                $success = 'Farm information updated successfully!';
+                header("Location: profile.php");
+                exit;
+            } catch (Exception $e) {
+                $conn->rollback();
+                $errors[] = 'Database error: ' . $e->getMessage();
             }
-
-            $farm_sql .= " WHERE farmer_id=?";
-
-            $stmt = $conn->prepare($farm_sql);
-
-            if (isset($farm_image_path)) {
-                $stmt->bind_param('ssssi', $farm_name, $farm_location, $region, $farm_image_path, $user_id);
-            } else {
-                $stmt->bind_param('sssi', $farm_name, $farm_location, $region, $user_id);
-            }
-
-            $stmt->execute();
-            $stmt->close();
-
-            $success = 'Farm information updated successfully!';
-            header("Location: profile.php");
-            exit;
         }
     }
 }
@@ -697,10 +727,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="card" id="farmCard">
                 <h2>Farm Information</h2>
                 <?php if ($farmer_profile): ?>
-                    <?php if ($farmer_profile['farm_img_path']): ?>
-                        <img src="<?= htmlspecialchars($public_farm_path) ?>" class="farm-image" 
-                             onerror="this.src='../images/default-farm.png';">
-                    <?php endif; ?>
+                    <div class="farm-images-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                        <?php if (!empty($farm_images)): ?>
+                            <?php foreach ($farm_images as $img): ?>
+                                <div class="farm-image-item" style="position: relative; height: 150px;">
+                                    <img src="../<?= htmlspecialchars($img['image_path']) ?>" alt="Farm Photo" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;">
+                                    <?php if ($img['is_primary']): ?>
+                                        <span style="position: absolute; top: 5px; left: 5px; background: var(--green); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">PRIMARY</span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php elseif ($farmer_profile['farm_img_path']): ?>
+                            <img src="<?= htmlspecialchars($public_farm_path) ?>" class="farm-image" 
+                                 onerror="this.src='../images/default-farm.png';">
+                        <?php endif; ?>
+                    </div>
                     
                     <div class="view-mode">
                         <div class="info-grid">
@@ -732,10 +773,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <form method="POST" enctype="multipart/form-data" class="edit-mode" id="farmEditForm">
                         <input type="hidden" name="action" value="update_farm">
-                        <div class="form-group">
-                            <label>Farm Image</label>
-                            <input type="file" name="farm_image" accept="image/*">
-                        </div>
                         <div class="info-grid">
                             <div class="form-group">
                                 <label>Farm Name</label>
@@ -765,6 +802,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <option value="Visayas" <?= ($farmer_profile['region'] === 'Visayas' ? 'selected' : '') ?>>Visayas</option>
                                 </select>
                             </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 20px; margin-bottom: 20px;">
+                            <label>Update Farm Photos</label>
+                            <input type="file" name="farm_images[]" accept="image/*" multiple>
+                            <p style="font-size: 12px; color: #666; margin-top: 5px;">Select multiple photos to upload. These will appear in your public profile gallery.</p>
                         </div>
                         <div style="display: flex; gap: 10px;">
                             <button type="submit" class="btn">Save Changes</button>
@@ -915,5 +957,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (farmCard) farmCard.classList.toggle('editing');
         }
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <?php include '../includes/image_preview.php'; ?>
 </body>
 </html>

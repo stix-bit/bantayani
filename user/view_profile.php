@@ -63,6 +63,19 @@ if ($role === 'Farmer') {
     $farmer_profile = $stmt->get_result()->fetch_assoc() ?: [];
     $stmt->close();
 
+    // Farm images
+    $farm_images = [];
+    $stmt = $conn->prepare("
+        SELECT image_id, image_path, is_primary
+        FROM farm_images
+        WHERE farmer_id = ?
+        ORDER BY is_primary DESC, uploaded_at ASC
+    ");
+    $stmt->bind_param('i', $profile_id);
+    $stmt->execute();
+    $farm_images = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
     // Verification documents
     $stmt = $conn->prepare("
         SELECT verification_id, certificate_type, certificate_name,
@@ -377,6 +390,35 @@ if ($role === 'Buyer') {
                 grid-template-columns: 1fr;
             }
         }
+        .farm-images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .farm-image-item {
+            position: relative;
+            height: 200px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .farm-image-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .primary-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: var(--green);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -415,27 +457,36 @@ if ($role === 'Buyer') {
             </div>
 
             <?php if ($role === 'Farmer' && $farmer_profile): ?>
-            <?php
-                $farm_img = $farmer_profile['farm_img_path'] ?? '';
-                $farm_public_path = !empty($farm_img) ? '../' . ltrim($farm_img, '/') : '../images/default-farm.png';
-            ?>
             <div class="card">
                 <h2>Farm Details</h2>
-                <div class="farm-image-wrap">
-                    <img src="<?= htmlspecialchars($farm_public_path) ?>" class="farm-image" alt="Farm"
-                         onerror="this.src='../images/default-farm.png';">
+                <div class="farm-images-grid">
+                    <?php if (!empty($farm_images)): ?>
+                        <?php foreach ($farm_images as $img): ?>
+                            <div class="farm-image-item">
+                                <img src="../<?= htmlspecialchars(ltrim($img['image_path'], '/')) ?>" alt="Farm Photo" onerror="this.src='../images/default-farm.png';">
+                                <?php if ($img['is_primary']): ?>
+                                    <span class="primary-badge">PRIMARY</span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php elseif (!empty($farmer_profile['farm_img_path'])): ?>
+                        <div class="farm-image-item">
+                            <img src="../<?= htmlspecialchars(ltrim($farmer_profile['farm_img_path'], '/')) ?>" alt="Farm Photo" onerror="this.src='../images/default-farm.png';">
+                            <span class="primary-badge">PRIMARY</span>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Farm Name</span>
-                    <span class="detail-value"><?= htmlspecialchars($farmer_profile['farm_name'] ?? '—') ?></span>
+                    <span class="detail-label">Farm name</span>
+                    <span class="detail-value"><?= htmlspecialchars($farmer_profile['farm_name'] ?? 'N/A') ?></span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Location</span>
-                    <span class="detail-value"><?= htmlspecialchars($farmer_profile['farm_location'] ?? '—') ?></span>
+                    <span class="detail-value"><?= htmlspecialchars($farmer_profile['farm_location'] ?? 'N/A') ?></span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Region</span>
-                    <span class="detail-value"><?= htmlspecialchars($farmer_profile['region'] ?? '—') ?></span>
+                    <span class="detail-value"><?= htmlspecialchars($farmer_profile['region'] ?? '') ?></span>
                 </div>
                 <?php if (!empty($farmer_profile['verified_at'])): ?>
                 <div class="detail-row">

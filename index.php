@@ -869,10 +869,10 @@ if (!isset($_SESSION['user_id'])) {
                     <div class="section-header">
                         <?php if ($user_role === 'Farmer'): ?>
                             <h3 class="section-title">Kamakailan na Orders</h3>
-                            <a href="farmer/orders.php" class="view-all">View All →</a>
+                            <a href="farmer/orders.php" class="view-all">Tignan lahat →</a>
                         <?php elseif  ($user_role === 'Buyer'): ?>
-                            <h3 class="section-title">Recent Orders</h3>
-                            <a href="buyer/orders.php" class="view-all">View All →</a>
+                            <h3 class="section-title">Kamakailan na Orders</h3>
+                            <a href="buyer/orders.php" class="view-all">Tignan lahat →</a>
                             
                         <?php endif; ?>
                         
@@ -905,7 +905,7 @@ if (!isset($_SESSION['user_id'])) {
                         </table>
                     <?php else: ?>
                         <p style="color: var(--text-light); text-align: center; padding: 32px;">
-                            No recent orders found.
+                            Walang mahanap na kamakailan na orders.
                         </p>
                     <?php endif; ?>
                 </div>
@@ -915,34 +915,34 @@ if (!isset($_SESSION['user_id'])) {
                     <?php if ($user_role === 'Farmer'): ?>
                         <a href="./farmer/inventory.php" class="action-card">
                             <div class="action-icon">➕</div>
-                            <div class="action-title">Add New Crop</div>
-                            <div class="action-desc">List your crops for sale</div>
+                            <div class="action-title">Maglagay ng bagong pananim</div>
+                            <div class="action-desc">Ilista ang iyong pananim para mabenta</div>
                         </a>
                         <a href="./farmer/inventory.php" class="action-card">
                             <div class="action-icon">📅</div>
-                            <div class="action-title">Harvest Schedule</div>
-                            <div class="action-desc">Plan your harvest dates</div>
+                            <div class="action-title">I-schedule Ang Ani</div>
+                            <div class="action-desc">Planuhin kung kailan ma-aani</div>
                         </a>
                         <a href="./farmer/cooperative.php" class="action-card">
                             <div class="action-icon">🤝</div>
-                            <div class="action-title">Join Cooperative</div>
-                            <div class="action-desc">Pool crops with other farmers</div>
+                            <div class="action-title">Sumali sa Cooperative</div>
+                            <div class="action-desc">I-join ang iyong pananim sa ibang magsasaka</div>
                         </a>
                         <a href="reports.php" class="action-card">
                             <div class="action-icon">📊</div>
-                            <div class="action-title">View Reports</div>
-                            <div class="action-desc">Track your sales and growth</div>
+                            <div class="action-title">Tignan ang Reports</div>
+                            <div class="action-desc">Tignan ang iyong mga kita</div>
                         </a>
                     <?php elseif ($user_role === 'Buyer'): ?>
                         <a href="marketplace.php" class="action-card">
                             <div class="action-icon">🛒</div>
-                            <div class="action-title">Browse Marketplace</div>
-                            <div class="action-desc">Find fresh produce</div>
+                            <div class="action-title">Bisitahin ang Marketplace</div>
+                            <div class="action-desc">Maghanap ng mga pananim</div>
                         </a>
                         <a href="./buyer/orders.php" class="action-card">
                             <div class="action-icon">📋</div>
-                            <div class="action-title">My Orders</div>
-                            <div class="action-desc">Track your purchases</div>
+                            <div class="action-title">Aking Mga Order</div>
+                            <div class="action-desc">Subaybayan ang iyong mga pagbili</div>
                         </a>
                     <?php endif; ?>
                 </div>
@@ -957,8 +957,8 @@ if (!isset($_SESSION['user_id'])) {
                 <?php if ($user_role === 'Farmer' && !empty($upcoming_harvests)): ?>
                     <div class="section-card" style="margin-top: 24px;">
                         <div class="section-header">
-                            <h3 class="section-title">Upcoming Harvests</h3>
-                            <a href="./farmer/inventory.php" class="view-all">View All →</a>
+                            <h3 class="section-title">Paparating na Ani</h3>
+                            <a href="./farmer/inventory.php" class="view-all">Tignan lahat →</a>
                         </div>
                         
                         <div class="quick-stats">

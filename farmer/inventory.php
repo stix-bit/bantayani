@@ -189,13 +189,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['harvest_action'])) {
             $stmt->bind_param('ii', $inventory_id, $farmer_id);
             $stmt->execute();
             $stmt->close();
-            $_SESSION['message'] = 'Harvest confirmed successfully.';
+            $_SESSION['message'] = 'Matagumpay na nakumpirma ang ani.';
         } else {
             $stmt = $conn->prepare("UPDATE crops_inventory SET harvest_status = 'Cancelled', harvest_cancelled_at = NOW() WHERE inventory_id = ? AND farmer_id = ?");
             $stmt->bind_param('ii', $inventory_id, $farmer_id);
             $stmt->execute();
             $stmt->close();
-            $_SESSION['message'] = 'Harvest schedule cancelled.';
+            $_SESSION['message'] = 'Kinansela ang iskedyul ng pag-aani.';
         }
     }
 
@@ -225,7 +225,7 @@ if (isset($_POST['action'])) {
         $stmt->bind_param("ii", $inventory_id, $farmer_id);
         $stmt->execute();
         $stmt->close();
-        $_SESSION['message'] = 'Crop archived successfully!';
+        $_SESSION['message'] = 'Matagumpay na na-archive ang ani!';
         header("Location: inventory.php");
         exit;
     }
@@ -237,7 +237,7 @@ if (isset($_POST['action'])) {
         $stmt->bind_param("ii", $inventory_id, $farmer_id);
         $stmt->execute();
         $stmt->close();
-        $_SESSION['message'] = 'Crop restored successfully!';
+        $_SESSION['message'] = 'Matagumpay na na-restore ang ani!';
         header("Location: inventory.php");
         exit;
     }
@@ -620,9 +620,9 @@ if (!empty($due_harvests)) {
         <div style="display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;">
     <div class="page-title">
         <h1>Inventory Management</h1>
-        <p>Manage your crops inventory</p>
+        <p>Pamahalaan ang iyong imbentaryo ng mga pananim</p>
     </div>
-    <a href="crop_add.php" class="confirm-btn">Add Crop</a>
+    <a href="crop_add.php" class="confirm-btn">Dagdag ng Ani</a>
 </div>
 
 <div class="content">
@@ -655,7 +655,7 @@ if (!empty($due_harvests)) {
                 <?php if (!empty($due_harvests)): ?>
                     <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
                         <div class="table-header">
-                            <h3> Harvest to be Done</h3>
+                            <h3>Paparating na Ani</h3>
                         </div>
                         <table class="data-table">
                             <thead>
@@ -707,10 +707,10 @@ if (!empty($due_harvests)) {
                 <?php else: ?>
                     <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
                         <div class="table-header">
-                            <h3> Harvest to be Done</h3>
+                            <h3> Paparating na Ani</h3>
                         </div>
                         <div style="text-align:center; padding:40px; color:var(--text-light);">
-                            No pending harvests
+                            Walang paparating na ani
                         </div>
                     </div>
                 <?php endif; ?>
@@ -814,7 +814,7 @@ if (!empty($due_harvests)) {
     </div>
 <?php else: ?>
     <div style="padding-top:12px; text-align:center; color:#10b981; font-size:0.88rem;">
-        ✅ No active weather alerts
+        ✅ Walang aktibong alerta sa panahon ngayon
     </div>
 <?php endif; ?>
                 </div>
@@ -824,7 +824,7 @@ if (!empty($due_harvests)) {
                 <?php if (!empty($harvested_crops)): ?>
                     <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
                         <div class="table-header">
-                            <h3>Recently Harvested</h3>
+                            <h3>Kamakailan na Ani</h3>
                         </div>
                         <table class="data-table">
                             <thead>
@@ -850,10 +850,10 @@ if (!empty($due_harvests)) {
                 <?php else: ?>
                     <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
                         <div class="table-header">
-                            <h3>Recently Harvested</h3>
+                            <h3>Kamakailan na Ani</h3>
                         </div>
                         <div style="text-align:center; padding:40px; color:var(--text-light);">
-                            No harvested crops yet
+                            Walang kamakailang ani
                         </div>
                     </div>
                 <?php endif; ?>
@@ -863,9 +863,9 @@ if (!empty($due_harvests)) {
         <!-- BOTTOM SECTION: All Crops with Tabs -->
         <div class="table-card" style="width:100%; box-sizing:border-box; padding:24px;">
             <div class="table-header" style="justify-content: space-between;">
-                <h3>All Crops Inventory</h3>
+                <h3>Lahat ng Pananim</h3>
                 <div style="display: flex; gap: 12px; align-items: center;">
-                    <a href="crop_manage.php" class="btn" style="height: 36px; padding: 0 14px; font-size: 0.85rem;">View Crop Management Overview</a>
+                    <a href="crop_manage.php" class="btn" style="height: 36px; padding: 0 14px; font-size: 0.85rem;">Tingnan ang Pangkalahatang-ideya ng Pamamahala ng Pananim</a>
                     <div class="tab-container">
                         <button class="tab-btn active" onclick="showTab('all')">All Crops</button>
                         <button class="tab-btn" onclick="showTab('available')">Available</button>
@@ -882,15 +882,15 @@ if (!empty($due_harvests)) {
                         <div style="display: flex; flex-direction: column; gap: 12px; text-align: center;">
                             <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
                                 <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= $analytics['total_crops'] ?></div>
-                                <div style="color:var(--text-light); font-size:0.8rem;">Harvest Records</div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Mga Tala ng Pag-aani</div>
                             </div>
                             <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
                                 <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= $analytics['total_quantity'] ?></div>
-                                <div style="color:var(--text-light); font-size:0.8rem;">Total Yield</div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Kabuuan ng Ani</div>
                             </div>
                             <div style="padding: 8px; background: #f9fafb; border-radius: 6px;">
                                 <div style="font-size:1.2rem; font-weight:bold; color:#1f8a70;"><?= number_format($analytics['avg_yield'],2) ?></div>
-                                <div style="color:var(--text-light); font-size:0.8rem;">Avg Yield</div>
+                                <div style="color:var(--text-light); font-size:0.8rem;">Avg Ani</div>
                             </div>
                         </div>
                     </div>
@@ -903,7 +903,7 @@ if (!empty($due_harvests)) {
                         <input type="text" id="search-input" placeholder="Search crops..." onkeyup="searchCrops()">
                     </div>
                     <div class="pagination-info">
-                        Showing <span id="showing-count"><?= count($inventory) ?></span> of <?= count($inventory) ?> crops
+                        Pinapakitang <span id="showing-count"><?= count($inventory) ?></span> of <?= count($inventory) ?> ani
                     </div>
                 </div>
                 
@@ -936,7 +936,7 @@ if (!empty($due_harvests)) {
                                             ?>
                                                 <div class="crop-image-item">
                                                     <img src="../<?= htmlspecialchars($image_path) ?>" alt="Crop image" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
-                                                    <button type="button" class="icon-btn delete-btn" onclick="deleteCropImage(<?= $image_id ?>, <?= $item['inventory_id'] ?>)" title="Delete image">
+                                                    <button type="button" class="icon-btn delete-btn" onclick="deleteCropImage(<?= $image_id ?>, <?= $item['inventory_id'] ?>)" title="Alisin ang imahe">
                                                         <i class="fa-solid fa-trash"></i>
                                                     </button>
                                                 </div>
@@ -967,20 +967,20 @@ if (!empty($due_harvests)) {
                                             <form method="POST" style="display:inline;">
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="inventory_id" value="<?= $item['inventory_id'] ?>">
-                                                <button type="submit" class="icon-btn delete-btn" title="Archive Crop" onclick="return confirm('Are you sure you want to archive this crop?')"><i class="fa-solid fa-trash"></i></button>
+                                                <button type="submit" class="icon-btn delete-btn" title="Archive Crop" onclick="return confirm('Sigurado ka bang gusto mong i-archive ang pananim na ito?')"><i class="fa-solid fa-trash"></i></button>
                                             </form>
                                         <?php else: ?>
                                             <form method="POST" style="display:inline;">
                                                 <input type="hidden" name="action" value="restore">
                                                 <input type="hidden" name="inventory_id" value="<?= $item['inventory_id'] ?>">
-                                                <button type="submit" class="icon-btn edit-btn" title="Restore Crop"><i class="fa-solid fa-rotate-left"></i></button>
+                                                <button type="submit" class="icon-btn edit-btn" title="I-restore ang pananim"><i class="fa-solid fa-rotate-left"></i></button>
                                             </form>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="6" style="text-align:center; padding:40px;">No crops found.</td></tr>
+                            <tr><td colspan="6" style="text-align:center; padding:40px;">Walang mahanap na pananim.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -998,14 +998,14 @@ if (!empty($due_harvests)) {
             <!-- Available Crops Tab Content -->
             <div id="available-crops-tab" class="tab-content">
                 <div style="text-align:center; padding:40px; color:var(--text-light);">
-                    Available crops (ready for sale) will appear here
+                   Lalabas dito ang mga available na pananim (ready for sale).
                 </div>
             </div>
             
             <!-- Scheduled Crops Tab Content -->
             <div id="scheduled-crops-tab" class="tab-content">
                 <div style="text-align:center; padding:40px; color:var(--text-light);">
-                    Scheduled crops (not yet harvested) will appear here
+                   Lalabas dito ang mga naka-iskedyul na pananim (hindi pa naaani).
                 </div>
             </div>
         </div>
@@ -1013,7 +1013,7 @@ if (!empty($due_harvests)) {
 <script>
 // Delete crop image function
 function deleteCropImage(imageId, inventoryId) {
-    if (!confirm('Are you sure you want to delete this image?')) {
+    if (!confirm('Sigurado ka bang gusto mong tanggalin ang larawang ito?')) {
         return;
     }
     
@@ -1032,12 +1032,12 @@ function deleteCropImage(imageId, inventoryId) {
         if (data.success) {
             location.reload();
         } else {
-            alert('Error: ' + (data.error || 'Failed to delete image'));
+            alert('Error: ' + (data.error || 'Nabigong tanggalin ang larawan'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Failed to delete image: ' + error.message);
+        alert('Nabigong tanggalin ang larawan: ' + error.message);
     });
 }
 

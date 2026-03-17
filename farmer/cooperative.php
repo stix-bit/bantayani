@@ -188,7 +188,7 @@ $member_pools_sql = "
     JOIN crops c ON p.crop_id = c.crop_id
     JOIN cooperative_members m ON p.pool_id = m.pool_id
     WHERE m.farmer_id = ?
-    GROUP BY p.pool_id
+    GROUP BY p.pool_id  
     ORDER BY p.created_at DESC
 ";
 $member_stmt = $conn->prepare($member_pools_sql);
@@ -311,7 +311,7 @@ if ($crops_result) {
     </div>
 
     <h1>Cooperative Pools</h1>
-    <p class="subtitle">Contribute your produce to any pool. Any farmer can contribute to any pool to help fulfill large-volume orders.</p>
+    <p class="subtitle">Mag-ambag ng iyong ani sa anumang pool. Ang sinumang magsasaka ay maaaring mag-ambag sa anumang pool upang makatulong na matupad ang malalaking dami ng mga order.</p>
 
     <?php if ($message): ?>
         <div class="msg success"><?= htmlspecialchars($message) ?></div>
@@ -346,7 +346,7 @@ if ($crops_result) {
     <!-- Contribute to a pool -->
     <div class="card">
         <h2>Contribute to a pool</h2>
-        <p style="color: var(--text-light); margin-bottom: 16px;">Select any pool and how much of your inventory to contribute. Your stock will be deducted and added to the pool.</p>
+        <p style="color: var(--text-light); margin-bottom: 16px;">Pumili ng anumang pool at kung gaano karami sa iyong imbentaryo ang iaambag. Ang iyong stock ay ibabawas at idaragdag sa pool.</p>
         <form method="post">
             <input type="hidden" name="contribute" value="1">
             <label>Pool</label>
@@ -367,9 +367,9 @@ if ($crops_result) {
                     </option>
                 <?php endforeach; ?>
             </select>
-            <label>Quantity to contribute</label>
+            <label>Dami ng iaambag</label>
             <input type="number" name="quantity" id="quantity" step="0.01" min="0.01" required placeholder="0">
-            <button type="submit" class="btn">Contribute</button>
+            <button type="submit" class="btn">Iambag</button>
         </form>
     </div>
 
@@ -377,7 +377,7 @@ if ($crops_result) {
     <div class="card">
         <h2>All cooperative pools</h2>
         <?php if (empty($pools)): ?>
-            <p style="color: var(--text-light);">No pools yet. Create one above, then contribute.</p>
+            <p style="color: var(--text-light);">Wala pang pool. Gumawa ng isa sa itaas, pagkatapos ay mag-ambag.</p>
         <?php else: ?>
             <table>
                 <thead>
@@ -422,7 +422,7 @@ if ($crops_result) {
                         <th>Pool</th>
                         <th>Total quantity</th>
                         <?php if ($has_unit_price): ?><th>Unit price</th><?php endif; ?>
-                        <th>Your contribution</th>
+                        <th>Iyong ambag</th>
                     </tr>
                 </thead>
                 <tbody>

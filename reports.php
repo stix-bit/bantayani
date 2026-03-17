@@ -757,7 +757,7 @@ $stmt->close();
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="reports.php" class="nav-link active">Reports</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="announcements.php" class="nav-link">Annunsyo</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
             <?php elseif ($user_role === 'Admin'): ?>

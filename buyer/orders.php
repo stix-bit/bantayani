@@ -60,7 +60,7 @@ $orders = $stmt->get_result();
             <a href="../marketplace.php" class="nav-link">Marketplace</a>
             <a href="cart.php" class="nav-link">Cart</a>
             <a href="orders.php" class="nav-link active">My Orders</a>
-            <a href="../announcements.php" class="nav-link">Announcements</a>
+            <a href="../announcements.php" class="nav-link">Annunsyo</a>
             <a href="../invoices.php" class="nav-link">Invoices</a>
             <a href="notifications.php" class="nav-link">Notifications</a>
     </div>

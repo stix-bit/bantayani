@@ -121,14 +121,14 @@ $rating_summary_stmt->close();
 
     <div class="content">
         <div class="summary">
-            <span class="badge">Overall rating: <?= $rating_summary['avg_rating'] ? number_format($rating_summary['avg_rating'], 2) : 'N/A' ?> </span>
+            <span class="badge">Kabuuang rating: <?= $rating_summary['avg_rating'] ? number_format($rating_summary['avg_rating'], 2) : 'N/A' ?> </span>
             <span class="badge">Total reviews: <?= (int)$rating_summary['total_reviews'] ?></span>
             <span class="badge">Product results: <?= count($reviews) ?></span>
         </div>
 
         <div class="table-card">
             <div class="table-header">
-                <h3 style="margin:0;">Review details</h3>
+                <h3 style="margin:0;">Detalye ng review</h3>
             </div>
             <?php if (empty($reviews)): ?>
                 <div style="padding: 32px; color: var(--text-light); text-align:center;">No reviews yet for your products.</div>
