@@ -185,21 +185,21 @@ function getNextVerificationStep($conn, $farmer_id) {
     $summary = getFarmerVerificationSummary($conn, $farmer_id);
     
     if ($summary['total_certificates'] == 0) {
-        return 'Upload your first certificate to begin verification';
+        return 'Iupload ang mga kinakailangang certificates para sa verification.';
     }
     
     if ($summary['pending'] > 0) {
-        return 'Waiting for admin review of submitted certificates';
+        return 'Hinihintay ang review ng iyong mga certificate. Pakihintay ang resulta.';
     }
     
     if ($summary['rejected'] > 0) {
-        return 'Some certificates were rejected. Please upload new ones';
+        return 'Ilan sa mga certificates mo ay na-reject. Pakire-upload muli ang mga ito para sa verification.';
     }
     
     if ($summary['approved'] > 0 && $summary['approved'] == $summary['total_certificates']) {
-        return 'Verification complete! You are a verified farmer';
+        return 'Tapos na ang verification! Ikaw ay isa nang verified farmer.';
     }
     
-    return 'Continue uploading certificates for complete verification';
+    return 'Patuloy na magupload ng certificates para sa verification';
 }
 ?>

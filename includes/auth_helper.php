@@ -20,12 +20,12 @@ function require_login($required_role = null) {
     
     // Check if user is logged in
     if (!isset($_SESSION['user_id'])) {
-        redirect_to_login('Please log in to continue.', $current_request);
+        redirect_to_login('Mag log-in para tumuloy.', $current_request);
     }
     
     // Check if specific role is required
     if ($required_role !== null && (!isset($_SESSION['role']) || $_SESSION['role'] !== $required_role)) {
-        redirect_to_login('You are not authorized to access that page.', $current_request);
+        redirect_to_login('Hindi ka karapatang i-access ang pahinang ito.', $current_request);
     }
 }
 

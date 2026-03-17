@@ -168,7 +168,7 @@ function validatePriceInRange($conn, $crop_id, $price, $days = DYNAMIC_PRICING_D
     if (!$range['has_data']) {
         return [
             'valid' => true,
-            'message' => 'No market data yet; price is accepted. Consider setting a competitive price.',
+            'message' => 'Wala pang market data; tinatanggap ang presyo. Isaalang-alang ang pagtatakda ng mas kompetitibong presyo.',
             'range' => $range,
         ];
     }
@@ -176,14 +176,14 @@ function validatePriceInRange($conn, $crop_id, $price, $days = DYNAMIC_PRICING_D
     if ($price < $range['price_min']) {
         return [
             'valid' => false,
-            'message' => sprintf('Price must be at least ₱%s (recommended: ₱%s). Min allowed: ₱%s.', number_format($range['price_min'], 2), number_format($range['recommended'], 2), number_format($range['price_min'], 2)),
+            'message' => sprintf('Ang presyo ay dapat ₱%s (recommended: ₱%s). Pinakamababa na allowed: ₱%s.', number_format($range['price_min'], 2), number_format($range['recommended'], 2), number_format($range['price_min'], 2)),
             'range' => $range,
         ];
     }
     if ($price > $range['price_max']) {
         return [
             'valid' => false,
-            'message' => sprintf('Price must be at most ₱%s (recommended: ₱%s). Max allowed: ₱%s.', number_format($range['price_max'], 2), number_format($range['recommended'], 2), number_format($range['price_max'], 2)),
+            'message' => sprintf('Ang presyo ay dapat ₱%s (recommended: ₱%s). Pinakamataas na allowed: ₱%s.', number_format($range['price_max'], 2), number_format($range['recommended'], 2), number_format($range['price_max'], 2)),
             'range' => $range,
         ];
     }

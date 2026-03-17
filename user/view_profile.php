@@ -383,7 +383,7 @@ if ($role === 'Buyer') {
     <div class="container">
         <div class="header">
             <div class="header-title">Profile</div>
-            <a href="../search.php" class="back-link">← Back to Search</a>
+            <a href="../search.php" class="back-link">← Balik sa Search</a>
         </div>
 
         <div class="profile-grid">
@@ -407,7 +407,7 @@ if ($role === 'Buyer') {
                     <span class="detail-value"><?= htmlspecialchars($user['address'] ?? '—') ?></span>
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Member since</span>
+                    <span class="detail-label">Member Since</span>
                     <span class="detail-value">
                         <?= !empty($user['created_at']) ? date('M d, Y', strtotime($user['created_at'])) : '—' ?>
                     </span>
@@ -426,7 +426,7 @@ if ($role === 'Buyer') {
                          onerror="this.src='../images/default-farm.png';">
                 </div>
                 <div class="detail-row">
-                    <span class="detail-label">Farm name</span>
+                    <span class="detail-label">Farm Name</span>
                     <span class="detail-value"><?= htmlspecialchars($farmer_profile['farm_name'] ?? '—') ?></span>
                 </div>
                 <div class="detail-row">
@@ -504,7 +504,7 @@ if ($role === 'Buyer') {
                         <?php endforeach; ?>
                     </div>
                 <?php else: ?>
-                    <p>No active products listed.</p>
+                    <p>Walang aktibong mga produkto na listahan.</p>
                 <?php endif; ?>
             </div>
 
@@ -547,7 +547,7 @@ if ($role === 'Buyer') {
                         <?php endforeach; ?>
                     </ul>
                 <?php else: ?>
-                    <p>No certificates on file.</p>
+                    <p>Walang mga sertipikasyon sa file.</p>
                 <?php endif; ?>
             </div>
         </div>

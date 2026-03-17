@@ -116,23 +116,23 @@ session_start();
 </head>
 <body>
 <div class="page">
-    <h1>What are you registering for?</h1>
-    <p class="subtitle">Pick your path so we can tailor the onboarding experience.</p>
+    <h1>Para saan ka magre-register</h1>
+    <p class="subtitle">Piliin ang iyong path para magawa namin ang onboarding experience.</p>
 
     <div class="back-container">
-    <a href="login.php" class="back-btn">← Back to Login</a>
+    <a href="login.php" class="back-btn">← Balik sa Login</a>
     </div>
 
     <div class="card-grid">
         <a class="card" href="register.php?role=Buyer">
             <span class="pill">Buyer</span>
-            <h2>Source fresh harvests</h2>
-            <p>Create an account to connect with verified farmers, place orders, and monitor deliveries effortlessly.</p>
+            <h2>Kumuha ng sariwang ani.</h2>
+            <p>Gumawa ng account upang makipag-ugnayan sa mga beripikadong magsasaka, maglagay ng mga order, at madaling subaybayan ang mga paghahatid.</p>
         </a>
         <a class="card" href="register.php?role=Farmer">
             <span class="pill">Farmer</span>
-            <h2>Showcase your farm</h2>
-            <p>Share your produce, upload farm photos, and get matched with active buyers and cooperative pools.</p>
+            <h2>Ipakita ang iyong ari-arian</h2>
+            <p>Magbahagi ng iyong mga produkto, mag-upload ng litrato ng ari-arian, at makakuha ng pagtutugunan sa mga aktibong mga bumibili at cooperative pools.</p>
         </a>
     </div>
 </div>

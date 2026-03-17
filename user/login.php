@@ -31,11 +31,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
 
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Please enter a valid email address.';
+        $errors[] = 'Maglagay ng tamang email address.';
     }
 
     if ($password === '') {
-        $errors[] = 'Password is required.';
+        $errors[] = 'Kailangan ng password.';
     }
 
     if (empty($errors)) {
@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user && password_verify($password, $user['password'])) {
 
             if ($user['deleted_at'] !== null) {
-                $errors[] = 'Your account has been archived.';
+                $errors[] = 'Ang iyong account ay naka-arkibo.';
             } else {
         
                 $_SESSION['user_id'] = $user['user_id'];
@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         
         } else {
-            $errors[] = 'Invalid email or password.';
+            $errors[] = 'Maling email o password.';
         }
     }
 }
@@ -270,8 +270,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="page-grid">
     <div class="card">
-        <h1>Welcome!</h1>
-        <p class="subtitle">Sign in to continue your BantayAni journey.</p>
+        <h1>Magandang araw!</h1>
+        <p class="subtitle">Mag-sign in para masimulan muli ang iyong BantayAni journey.</p>
 
         <?php if ($info_message !== '') : ?>
             <div class="alert">
@@ -301,16 +301,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button type="submit">Log In</button>
     </form>
 
-    <p class="switch-link">Don’t have an account? <a href="register-choice.php">Create one</a>.</p>
+    <p class="switch-link">Walang account? <a href="register-choice.php">Gumawa ng account</a>.</p>
 </div>
 
     <aside class="about-card">
         <img src="../images/logo.png" alt="BantayAni logo" />
-        <h2>About BantayAni</h2>
-        <p>BANTAY-ANI is a farm-to-market trading and logistics platform designed to support small-scale farmers, buyers, and local agricultural authorities through a centralized digital system. Our mission is to improve transparency, efficiency, and connectivity within the agricultural supply chain by providing tools that simplify production monitoring, market access, and delivery coordination.</p>
-        <p>Many farmers still rely on traditional methods for managing harvests, communicating with buyers, and tracking transactions. These manual processes often limit their access to markets and reduce their bargaining power. BANTAY-ANI addresses these challenges by offering an integrated online platform where farmers can manage crop inventory, schedule harvests, coordinate deliveries, and connect directly with verified buyers.</p>
-        <p>At its core, BANTAY-ANI aims to empower farmers, strengthen local agriculture, and create a more transparent and sustainable farm-to-market ecosystem for communities.</p>
-        <p><strong>Created using PHP, HTML/CSS, Javascript, MySQL</strong></p>
+        <h2>Alamin ang BantayAni</h2>
+        <p>Ang BANTAY-ANI ay isang farm-to-market trading at logistics platform na idinisenyo upang suportahan ang maliliit na magsasaka, mga mamimili, at mga lokal na awtoridad sa agrikultura sa pamamagitan ng isang sentralisadong digital na sistema. Ang aming misyon ay mapabuti ang transparency, kahusayan, at koneksyon sa loob ng agricultural supply chain sa pamamagitan ng pagbibigay ng mga kasangkapan o tools na nagpapadali sa pagsubaybay sa produksyon, pag-access sa merkado, at koordinasyon ng paghahatid ng mga produkto.</p>
+        <p>Maraming magsasaka ang umaasa pa rin sa tradisyunal na paraan sa pamamahala ng ani, pakikipag-ugnayan sa mga mamimili, at pagsubaybay sa mga transaksyon. Ang mga manwal na prosesong ito ay kadalasang naglilimita sa kanilang **pag-access sa mga pamilihan** at nagpapababa sa kanilang kakayahang makipag-negosasyon sa presyo. Tinutugunan ng BANTAY-ANI ang mga hamong ito sa pamamagitan ng pagbibigay ng isang integrated na online platform kung saan maaaring pamahalaan ng mga magsasaka ang imbentaryo ng pananim, mag-iskedyul ng pag-aani, mag-ayos ng paghahatid ng produkto, at direktang makipag-ugnayan sa mga beripikadong mamimili.
+</p>
+        <p>Sa pinakapuso nito, ang BANTAY-ANI ay naglalayong bigyang-kapangyarihan ang mga magsasaka, palakasin ang lokal na agrikultura, at lumikha ng mas malinaw at napapanatiling farm-to-market na ekosistema para sa mga komunidad.
+</p>
+        <p><strong>Ginawa gamit ang PHP, HTML/CSS, Javascript, MySQL</strong></p>
     </aside>
 </div>
 </body>

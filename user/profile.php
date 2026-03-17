@@ -68,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $address = trim($_POST['address']);
 
     if ($first_name === '' || $last_name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Please fill out all required fields correctly.';
+        $errors[] = 'Pakisagutan nang tama ang lahat ng kinakailangang field.';
     }
 
     /* ===== Avatar Upload ===== */
@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $allowed = ['jpg','jpeg','png','gif'];
 
         if (!in_array($ext, $allowed)) {
-            $errors[] = 'Invalid image type.';
+            $errors[] = 'Maling image type.';
         } else {
 
             $uploadDir = __DIR__ . '/../images/uploads/profiles';
@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (move_uploaded_file($tmp, $destination)) {
                 $avatar_path = 'images/uploads/profiles/' . $newName;
             } else {
-                $errors[] = 'Failed to upload profile image.';
+                $errors[] = 'Nabigong i-upload ang larawan ng profile.';
             }
         }
     }
@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $_SESSION['first_name'] = $first_name;
-        $success = 'Profile updated successfully!';
+        $success = 'Naupdate na ang iyong profile.';
         header("Location: profile.php");
     }
 }
@@ -313,7 +313,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <img src="<?= htmlspecialchars($public_path) ?>" class="avatar-preview"
      onerror="this.src='../images/default-avatar.png';">
 
-<label>Change Avatar</label>
+<label>Palitan ang picture</label>
 <input type="file" name="avatar" accept="image/*">
 
 <label>First Name</label>

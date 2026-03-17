@@ -8,12 +8,12 @@ function saveUploadedImage(array $file, string $subDir, string $prefix): string
 {
     $imageInfo = @getimagesize($file['tmp_name']);
     if ($imageInfo === false) {
-        throw new RuntimeException('Only image files are allowed.');
+        throw new RuntimeException('Image files lang pwede.');
     }
 
     $allowedMime = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!in_array($imageInfo['mime'], $allowedMime, true)) {
-        throw new RuntimeException('Unsupported image format uploaded.');
+        throw new RuntimeException('Hindi sinusuportahan ang image file format.');
     }
 
     $uploadRoot = __DIR__ . '/../images/uploads';
@@ -28,7 +28,7 @@ function saveUploadedImage(array $file, string $subDir, string $prefix): string
     $targetPath = $targetDir . '/' . $filename;
 
     if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
-        throw new RuntimeException('Unable to save uploaded image.');
+        throw new RuntimeException('Hindi ma-save ang larawan.');
     }
 
     return 'images/uploads/' . $subDir . '/' . $filename;
@@ -53,59 +53,59 @@ function validateRegistrationInput(array $data, ?array $profileImage, ?array $fa
     $errors = [];
 
     if (($data['first_name'] ?? '') === '' || ($data['middle_name'] ?? '') === '' || ($data['last_name'] ?? '') === '' || ($data['email'] ?? '') === '' || ($data['address'] ?? '') === '') {
-        $errors[] = 'First name, middle name, last name, email, and address are required.';
+        $errors[] = 'Ang lahat ng kinakailangang field ay kailangan.';
     }
 
     if (!filter_var($data['email'] ?? '', FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Invalid email.';
+        $errors[] = 'Maling email.';
     }
 
     $password = $data['password'] ?? '';
     $confirmPassword = $data['confirm_password'] ?? '';
     if ($password === '' || $confirmPassword === '') {
-        $errors[] = 'Please set and confirm your password.';
+        $errors[] = 'Mangyaring itakda at kunin ang iyong password.';
     } elseif ($password !== $confirmPassword) {
-        $errors[] = 'Passwords do not match.';
+        $errors[] = 'Ang mga password ay hindi tumugma.';
     } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$/', $password)) {
-        $errors[] = 'Password must be at least 8 characters and include lowercase, uppercase, and number.';
+        $errors[] = 'Ang password ay dapat na hindi bababa sa 8 na karakter at kulang ang lowercase, uppercase, at number.';
     }
 
     if (!$profileImage || $profileImage['error'] === UPLOAD_ERR_NO_FILE) {
-        $errors[] = 'Profile photo is required.';
+        $errors[] = 'Ang profile photo ay kailangan.';
     } elseif ($profileImage['error'] !== UPLOAD_ERR_OK) {
-        $errors[] = 'There was a problem uploading your profile photo.';
+        $errors[] = 'May problema sa pag-upload ng iyong profile photo.';
     }
 
     $allowedPaymentMethods = ['Cash', 'Online'];
     if (!in_array($data['preferred_payment_method'] ?? 'Cash', $allowedPaymentMethods, true)) {
-        $errors[] = 'Please choose a valid payment method.';
+        $errors[] = 'Mangyaring pumili ng isang valid na paraan ng pagbayad.';
     }
 
     if ($activeRole === 'Buyer') {
         if (!in_array($data['buyer_type'] ?? 'Individual', ['Individual', 'Company'], true)) {
-            $errors[] = 'Please choose whether you are an individual or company buyer.';
+            $errors[] = 'Mangyaring pumili kung ikaw ay isang indibidwal o kumpanya.';
         }
 
         if (($data['buyer_type'] ?? 'Individual') === 'Company') {
             if (trim($data['company_name'] ?? '') === '' || trim($data['company_address'] ?? '') === '' || trim($data['contact_person'] ?? '') === '' || trim($data['tax_id'] ?? '') === '') {
-                $errors[] = 'Company name, address, contact person, and tax ID are required for company buyers.';
+                $errors[] = 'Ang pangalan ng kumpanya, address, contact person, at tax ID ay kailangan para sa mga kumpanya.';
             }
             
             // Validate company name length
             if (strlen(trim($data['company_name'] ?? '')) > 100) {
-                $errors[] = 'Company name must be 100 characters or less.';
+                $errors[] = 'Ang pangalan ng kumpanya ay dapat na hindi bababa sa 100 na karakter.';
             }
             
             // Validate tax ID format and length
             if (strlen(trim($data['tax_id'] ?? '')) > 50) {
-                $errors[] = 'Tax ID must be 50 characters or less.';
+                $errors[] = 'Ang tax ID ay dapat na hindi bababa sa 50 na karakter.';
             }
         }
     }
 
     if ($activeRole === 'Farmer') {
         if (trim($data['farm_name'] ?? '') === '' || trim($data['farm_location'] ?? '') === '') {
-            $errors[] = 'Farm name and farm location are required for farmers.';
+            $errors[] = 'Ang pangalan ng farm at farm location ay kailangan para sa mga magsasaka.';
         }
 
         $valid_regions = ['', 'Manila', 'Nueva Ecija', 'Bulacan', 'Batangas', 'Laguna',
@@ -113,11 +113,11 @@ function validateRegistrationInput(array $data, ?array $profileImage, ?array $fa
                           'Mindanao', 'Luzon', 'Visayas'];
         $region = trim($data['region'] ?? '');
         if ($region !== '' && !in_array($region, $valid_regions, true)) {
-            $errors[] = 'Please choose a valid region.';
+            $errors[] = 'Mangyaring pumili ng isang valid na rehiyon.';
         }
 
         if ($farmImage && $farmImage['error'] !== UPLOAD_ERR_OK && $farmImage['error'] !== UPLOAD_ERR_NO_FILE) {
-            $errors[] = 'Farm image upload failed. Please try again.';
+            $errors[] = 'Nabigo ang pag-upload ng farm image. Mangyaring subukan muli.';
         }
     }
 
@@ -142,7 +142,7 @@ function saveOptionalImage(?array $file, string $subDir, string $prefix): ?strin
     }
 
     if ($file['error'] !== UPLOAD_ERR_OK) {
-        throw new RuntimeException('One of the optional images failed to upload.');
+        throw new RuntimeException('Nabigo ang pag-upload ng isang ng optional images.');
     }
 
     return saveUploadedImage($file, $subDir, $prefix);
@@ -230,7 +230,7 @@ $farmImageRelativePath = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $activeRole = $_POST['role'] ?? $activeRole;
     if (!in_array($activeRole, $allowedRoles, true)) {
-        $errors[] = 'Invalid registration role selected.';
+        $errors[] = 'Maling pumili ng registration role.';
     }
 
     $firstName = trim($_POST['first_name'] ?? '');
@@ -278,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = array_merge($errors, validateRegistrationInput($formData, $profileImage, $farmImage, $activeRole));
 
     if (empty($errors) && emailAlreadyExists($conn, $email)) {
-        $errors[] = 'Email is already registered. Please log in instead.';
+        $errors[] = 'Ang email ay naka-register na. Mangyaring mag-login sa halip.';
     }
 
     $uploadedRelativePaths = [];
@@ -307,7 +307,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $formData['preferred_payment_method'] = $preferredPaymentMethod;
             createUserWithProfiles($conn, $activeRole, $formData, $profileImageRelativePath, $farmImageRelativePath);
-            $_SESSION['registration_success'] = 'Registration successful! You may now log in.';
+            $_SESSION['registration_success'] = 'Registration successful! Mangyaring mag-login para tumuloy.';
             header('Location: login.php');
             exit;
         } catch (mysqli_sql_exception $exception) {
@@ -316,11 +316,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Handle specific duplicate company errors
             if (strpos($exception->getMessage(), 'Duplicate entry') !== false && strpos($exception->getMessage(), 'company_name') !== false) {
-                $errors[] = 'A company with this name already exists. Please contact your administrator or use a different company name.';
+                $errors[] = 'May umiiral nang kumpanya na may ganitong pangalan. Mangyaring makipag-ugnayan sa iyong administrator o gumamit ng ibang pangalan ng kumpanya.
+';
             } elseif (strpos($exception->getMessage(), 'Duplicate entry') !== false && strpos($exception->getMessage(), 'tax_id') !== false) {
-                $errors[] = 'A company with this Tax ID already exists. Please verify your Tax ID or contact your administrator.';
+                $errors[] = 'May umiiral nang kumpanya na may ganitong tax ID. Mangyaring kunin ang iyong tax ID o makipag-ugnayan sa iyong administrator.';
             } else {
-                $errors[] = 'An unexpected error occurred during registration. Please try again later.';
+                $errors[] = 'May unexpected error na nangyayari sa pag-register. Mangyaring subukan muli mamaya.';
             }
         }
     } elseif (!empty($uploadedRelativePaths)) {
@@ -504,10 +505,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
 <div class="page">
-    <div class="role-pill">Registering as <?= htmlspecialchars($activeRole, ENT_QUOTES, 'UTF-8'); ?></div>
-    <h1>Creating Your BantayAni Account</h1>
-    <p class="subtitle">Share a few details so we can personalize your <?= strtolower($activeRole); ?> experience.</p>
-    <a class="change-role-link" href="register-choice.php">&larr; Choose a different role</a>
+    <div class="role-pill">Magre-register bilang <?= htmlspecialchars($activeRole, ENT_QUOTES, 'UTF-8'); ?></div>
+    <h1>Paglikha ng iyong BantayAni Account</h1>
+    <p class="subtitle">Ibahagi ang ilang detalye upang ma-personalize ang <?= strtolower($activeRole); ?> experience mo.</p>
+    <a class="change-role-link" href="register-choice.php">&larr; Pumili ng isang iba pang role</a>
 
     <?php if (!empty($errors)) : ?>
         <div class="alert alert-error">
@@ -547,7 +548,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         name="email"
                         value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                         required
-                        oninvalid="this.setCustomValidity('Invalid email')"
+                        oninvalid="this.setCustomValidity('Maling email')"
                         oninput="this.setCustomValidity('')"
                 />
             </div>
@@ -566,13 +567,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         name="password"
                         minlength="8"
                         pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}"
-                        title="At least 8 characters with lowercase, uppercase, and number"
+                        title="Hindi bababa sa 8 na karakter na may lowercase, uppercase, at number"
                         required
                 />
-                <p class="field-note">Use at least 8 characters with lowercase, uppercase, and number.</p>
+                <p class="field-note">Gumamit ng hindi bababa sa 8 na karakter na may lowercase, uppercase, at number.</p>
             </div>
             <div>
-                <label for="confirm_password">Confirm Password</label>
+                <label for="confirm_password">Kumpirmahin ang Password</label>
                 <input type="password" id="confirm_password" name="confirm_password" minlength="8" required />
             </div>
         </div>
@@ -586,16 +587,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h3>Profile Photo</h3>
             <div class="file-input">
                 <input type="file" name="profile_image" id="profile_image" accept="image/*" required />
-                <p class="field-note">Upload a clear headshot (JPG, PNG, GIF, WEBP).</p>
+                <p class="field-note">Maglarawan ng isang clear headshot (JPG, PNG, GIF, WEBP).</p>
             </div>
         </div>
 
         <?php if ($activeRole === 'Buyer') : ?>
             <div class="section-card">
-                <h3>Buyer Details</h3>
+                <h3>Detalye ng Buyer</h3>
                 <div class="grid">
                     <div>
-                        <label for="buyer_type">Buyer Type</label>
+                        <label for="buyer_type">Uri ng Buyer</label>
                         <select name="buyer_type" id="buyer_type" required>
                             <option value="Individual" <?= $buyerType === 'Individual' ? 'selected' : ''; ?>>Individual</option>
                             <option value="Company" <?= $buyerType === 'Company' ? 'selected' : ''; ?>>Company</option>
@@ -628,7 +629,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="text" id="tax_id" name="tax_id" value="<?= htmlspecialchars($_POST['tax_id'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" />
                     </div>
                     <div style="grid-column: span 2;">
-                        <p class="field-note">Company details are required if you are registering as a company buyer.</p>
+                        <p class="field-note">Ang mga detalye ng kumpanya ay kailangan kung ikaw ay magrere-register bilang isang kumpanya.</p>
                     </div>
                 </div>
             </div>
@@ -668,13 +669,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="file-input" style="margin-top: 20px;">
                     <label for="farm_image">Farm Photo (optional)</label>
                     <input type="file" id="farm_image" name="farm_image" accept="image/*" />
-                    <p class="field-note">Upload one image to highlight your farm. JPG/PNG/GIF/WEBP accepted.</p>
+                    <p class="field-note">Maglarawan ng isang image upang i-highlight ang iyong farm. JPG/PNG/GIF/WEBP accepted.</p>
                 </div>
             </div>
         <?php endif; ?>
 
         <div class="submit-row">
-            <button type="submit">Create Account</button>
+            <button type="submit">Gumawa ng Account</button>
         </div>
     </form>
 </div>

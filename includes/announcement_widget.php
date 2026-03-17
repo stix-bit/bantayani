@@ -136,7 +136,7 @@ $stmt->close();
     
     <?php if (empty($widget_announcements)): ?>
         <div class="no-announcements">
-            No new announcements
+            Walang bagong annunsyo
         </div>
     <?php else: ?>
         <?php foreach ($widget_announcements as $widget_ann): ?>
@@ -161,6 +161,6 @@ $stmt->close();
     <?php endif; ?>
     
     <a href="announcements.php" class="view-all-announcements">
-        View All Announcements →
+        Tignan lahat ng Annunsyo →
     </a>
 </div>

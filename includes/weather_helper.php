@@ -138,7 +138,7 @@ class WeatherService {
         if ($temp && $temp > 35) {
             $alerts[] = [
                 'title' => 'High Temperature Warning',
-                'message' => "Current temperature is {$temp}°C. Ensure crops are well-watered and consider providing shade.",
+                'message' => "Ang kasalukuyang temperatura ay {$temp}°C. Paniguraduhin na ang halaman ay nasa tamang kondisyon.",
                 'severity' => 'High'
             ];
         }
@@ -147,7 +147,7 @@ class WeatherService {
         if ($temp && $temp >= 28 && $temp <= 35) {
             $alerts[] = [
                 'title' => 'Warm Weather',
-                'message' => "Temperature: {$temp}°C. Monitor crop moisture levels.",
+                'message' => "Temperature: {$temp}°C. I-monitor ang moisture ng mga halaman.",
                 'severity' => 'Medium'
             ];
         }
@@ -156,7 +156,8 @@ class WeatherService {
         if ($temp && $temp < 10) {
             $alerts[] = [
                 'title' => 'Low Temperature Warning',
-                'message' => "Current temperature is {$temp}°C. Frost risk may affect sensitive crops.",
+                'message' => "Ang kasalukuyang temperatura is {$temp}°C. Maaaring makaapekto ang panganib ng frost sa mga sensitibong pananim.
+.",
                 'severity' => 'High'
             ];
         }
@@ -166,7 +167,8 @@ class WeatherService {
         if ($humidity > 85) {
             $alerts[] = [
                 'title' => 'High Humidity',
-                'message' => "Humidity: {$humidity}%. High risk of fungal diseases. Improve air circulation.",
+                'message' => "Humidity: {$humidity}%. Mataas ang panganib ng mga sakit na dulot ng fungi. Pagbutihin ang sirkulasyon ng hangin.
+",
                 'severity' => 'Medium'
             ];
         }
@@ -176,7 +178,8 @@ class WeatherService {
         if ($wind > 50) {
             $alerts[] = [
                 'title' => 'High Wind Warning',
-                'message' => "Wind speed: {$wind} km/h. Secure crops and protect from wind damage.",
+                'message' => "Wind speed: {$wind} km/h. Siguraduhin ang mga pananim at protektahan ang mga ito laban sa pinsalang dulot ng malakas na hangin.
+",
                 'severity' => 'High'
             ];
         }

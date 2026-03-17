@@ -760,11 +760,11 @@ if (!isset($_SESSION['user_id'])) {
             <?php if ($user_role === 'Farmer'): ?>
                 <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="marketplace.php" class="nav-link">Marketplace</a>
-                <a href="./farmer/inventory.php" class="nav-link">My Inventory</a>
+                <a href="./farmer/inventory.php" class="nav-link">Inventory</a>
                 <a href="./farmer/orders.php" class="nav-link">Orders</a>
                 <a href="./farmer/cooperative.php" class="nav-link">Cooperative</a>
                 <a href="reports.php" class="nav-link">Reports</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="announcements.php" class="nav-link">Annunsyo</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./farmer/notifications.php" class="nav-link">Notifications</a>
                 
@@ -772,8 +772,8 @@ if (!isset($_SESSION['user_id'])) {
                 <a href="index.php" class="nav-link active">Dashboard</a>
                 <a href="marketplace.php" class="nav-link">Marketplace</a>
                 <a href="./buyer/cart.php" class="nav-link">Cart</a>
-                <a href="./buyer/orders.php" class="nav-link">My Orders</a>
-                <a href="announcements.php" class="nav-link">Announcements</a>
+                <a href="./buyer/orders.php" class="nav-link">Orders</a>
+                <a href="announcements.php" class="nav-link">Annunsyo</a>
                 <a href="invoices.php" class="nav-link">Invoices</a>
                 <a href="./buyer/notifications.php" class="nav-link">Notifications</a>
             <?php endif; ?>
@@ -808,8 +808,8 @@ if (!isset($_SESSION['user_id'])) {
     <main class="container">
         <!-- Welcome Banner -->
         <div class="welcome-banner">
-            <h1>Welcome back, <?= htmlspecialchars($first_name) ?>!</h1>
-            <p>Manage your farm-to-market activities efficiently with BANTAY-ANI.</p>
+            <h1>Maligayang pagbalik, <?= htmlspecialchars($first_name) ?>!</h1>
+            <p>Pamahalaan ang iyong farm-to-market activities nang efektibo gamit ang BANTAY-ANI.</p>
             <div class="role-badge"><?= $user_role ?></div>
         </div>
 
@@ -819,43 +819,43 @@ if (!isset($_SESSION['user_id'])) {
                 <div class="stat-card">
                     <div class="stat-icon farmer">🌱</div>
                     <div class="stat-value"><?= $dashboard_data['active_listings'] ?? 0 ?></div>
-                    <div class="stat-label">Active Listings</div>
+                    <div class="stat-label">Aktibong Listings</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon farmer">📦</div>
                     <div class="stat-value"><?= $dashboard_data['total_inventory'] ?? 0 ?></div>
-                    <div class="stat-label">Total Inventory (kg)</div>
+                    <div class="stat-label">Kabuuang Inventory (kg)</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon farmer">💰</div>
                     <div class="stat-value">₱<?= number_format($dashboard_data['avg_price'] ?? 0, 2) ?></div>
-                    <div class="stat-label">Average Price</div>
+                    <div class="stat-label">Kabuuang Presyo</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon farmer">⏳</div>
                     <div class="stat-value"><?= $dashboard_data['pending_orders'] ?? 0 ?></div>
-                    <div class="stat-label">Pending Orders</div>
+                    <div class="stat-label">Nakapending na Orders</div>
                 </div>
             <?php elseif ($user_role === 'Buyer'): ?>
                 <div class="stat-card">
                     <div class="stat-icon buyer">📋</div>
                     <div class="stat-value"><?= $dashboard_data['total_orders'] ?? 0 ?></div>
-                    <div class="stat-label">Total Orders</div>
+                    <div class="stat-label">Kabuuang Orders</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon buyer">💰</div>
                     <div class="stat-value">₱<?= number_format($dashboard_data['total_spent'] ?? 0, 2) ?></div>
-                    <div class="stat-label">Total Spent</div>
+                    <div class="stat-label">Kabuuang Gastusin</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon buyer">👨‍🌾</div>
                     <div class="stat-value"><?= $dashboard_data['farmers_connected'] ?? 0 ?></div>
-                    <div class="stat-label">Farmers Connected</div>
+                    <div class="stat-label">Connected na Farmers</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon buyer">⏳</div>
                     <div class="stat-value"><?= $dashboard_data['pending_orders'] ?? 0 ?></div>
-                    <div class="stat-label">Pending Orders</div>
+                    <div class="stat-label">Nakapending na Orders</div>
                 </div>
             <?php endif; ?>
         </div>
@@ -868,7 +868,7 @@ if (!isset($_SESSION['user_id'])) {
                 <div class="section-card">
                     <div class="section-header">
                         <?php if ($user_role === 'Farmer'): ?>
-                            <h3 class="section-title">Recent Orders</h3>
+                            <h3 class="section-title">Kamakailan na Orders</h3>
                             <a href="farmer/orders.php" class="view-all">View All →</a>
                         <?php elseif  ($user_role === 'Buyer'): ?>
                             <h3 class="section-title">Recent Orders</h3>
